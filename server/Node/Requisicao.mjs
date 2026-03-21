@@ -57,7 +57,6 @@ class FlashcardGenerator {
             const resposta = await this.ai.models.generateContent({
                 model: this.modelo, 
                 contents: [instruction, pdfContent],
-                // A MÁGICA DO JSON ACONTECE AQUI:
                 config: {
                     responseMimeType: "application/json",
                 }
@@ -74,7 +73,6 @@ class FlashcardGenerator {
 async function testarSistema() {
     const gerador = new FlashcardGenerator();
 
-    // O Prompt à prova de falhas para forçar o JSON exato
     const instrucao = `
     Você é um professor especialista em criar materiais de revisão usando a técnica de Active Recall.
     Analise o documento anexado e gere exatamente 3 flashcards.
