@@ -1,13 +1,17 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: "./server/.env" });
 import { createPartFromUri, GoogleGenAI } from "@google/genai";
 
 class FlashcardGenerator {
+    ai;
+    modelo: string;
+
     constructor() {
-        this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        this.modelo = "gemini-2.5-flash"; 
+        this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+        this.modelo = "gemini-2.5-flash";
     }
 
-    async processPDF(url, filename) {
+    async processPDF(url: string, filename: string): Promise<any> {
         try {
             console.log(`[1/3] Downloading ${filename}...`);
             
@@ -17,7 +21,6 @@ class FlashcardGenerator {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 }
             });
-
             
             if (!response.ok) {
                 throw new Error(`O site bloqueou o download. Status: ${response.status}`);
@@ -32,6 +35,10 @@ class FlashcardGenerator {
                 config: { displayName: filename },
             });
 
+            if (!file.name) {
+                throw new Error("O upload do arquivo não retornou um nome válido.");
+            }
+
             let getFile = await this.ai.files.get({name: file.name });
             while (getFile.state === "PROCESSING") {
                 console.log("Waiting for the IA...");
@@ -42,13 +49,13 @@ class FlashcardGenerator {
             if (getFile.state === "FAILED") throw new Error("AI failed to process the document.");
             console.log(`[3/3] Finished!`);
             return getFile;
-        } catch (erro) {
+        } catch (erro: any) {
             console.error(`Critical error in file: ${erro.message}`);
             throw erro;
         }
     }
 
-    async generate(PDFurl, instruction) {
+    async generate(PDFurl: string, instruction: string): Promise<string | null> {
         try {
             const file = await this.processPDF(PDFurl, "Material de Estudo");
             const pdfContent = createPartFromUri(file.uri, file.mimeType);
@@ -61,9 +68,11 @@ class FlashcardGenerator {
                     responseMimeType: "application/json",
                 }
             });
-
+            if (!resposta.text) {
+                throw new Error("O upload do arquivo não retornou um nome válido.");
+              }
             return resposta.text;
-        } catch (erro) {
+        } catch (erro: any) {
             console.error(`Erro ao gerar:`, erro);
             return null;
         }
