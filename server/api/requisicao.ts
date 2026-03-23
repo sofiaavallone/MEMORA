@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config({ path: "./server/.env" });
+dotenv.config();
 import { createPartFromUri, GoogleGenAI } from "@google/genai";
 
 class FlashcardGenerator {
