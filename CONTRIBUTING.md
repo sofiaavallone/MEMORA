@@ -96,9 +96,14 @@ Agora, abra **dois terminais**:
 # PADRÃO DE DESENVOLVIMENTO
 
 ### Padrão de commit
-Ex.: feat: adiciona tela de login, fix: corrige validação do formulário
+Ex.: feat: adiciona tela de login
+
+fix: corrige validação do formulário
 
 ### Pull Request
+
+Quando der `push` depois de criar uma nova feat ou fix
+
 ```
 O que eu fiz
 
@@ -112,6 +117,12 @@ Como testar
 ```
 
 ### Padrão de branch
+
+Sempre que for mexer no código, seja para criar uma feat ou fazer um fix:
+
+1. `git pull origin develop`
+2. `git checkout -b nome-da-branch`
+
 - feat/oqueFez: uma nova feature
 - fix/oqueFez: conserto de algo
 
