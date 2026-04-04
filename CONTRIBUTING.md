@@ -42,7 +42,13 @@ Certifique-se de que o **Docker Desktop** está aberto. Na raiz do projeto, rode
 
 Para que o seu banco local tenha as tabelas que criamos, vá na pasta server e rode: 
 
-`pnpm exec prisma migrate dev` (quando tiver banco de dados)
+`cd server`
+
+`pnpm prisma generate`
+
+`pnpm prisma migrate dev --name init`
+
+Obs: certifique-se de que o container do banco está rodando (`docker compose up -d`)
 
 **6. Como Rodar o Projeto**
 
