@@ -11,3 +11,36 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model User {
+  id            String  @id @default(cuid())
+  nome          String
+  email         String  @unique
+  passwordHash  String
+  decks         Deck[] // relação 1:N
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Deck {
+  id          String @id @default(cuid())
+  titulo      String // tópico definido pelo usuário
+  userId      String // FK
+  user        User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flashcards  Flashcard[] // relação 1:N
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Flashcard {
+  id          String @id @default(cuid())
+  pergunta    String
+  resposta    String
+  deckId      String // FK
+  deck        Deck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  proxRevisao DateTime @default(now())
+  intervalo   Int @default(1)
+  acertos     Int @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
