@@ -1,113 +1,105 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
+import { createPartFromUri, GoogleGenAI } from "@google/genai";
 
-import { PdfManager } from "../utils/pdfDownloader.js";
-import { FlashcardPromptBuilder, type PromptConfig } from "../prompts/flashcardsPrompt.js";
-import { GeminiService, GeminiServiceError } from "../services/geminiService.js";
-import type { Flashcard } from "../prompts/flashcardsPrompt.js";
+class FlashcardGenerator {
+    ai;
+    modelo: string;
 
-// constantes
-const TEST_CONFIG = {
-    pdfUrl: "https://www.scielo.br/j/csc/a/qyJNfTzPPzWqZ8GYJm4BjLk/?format=pdf&lang=pt",
-    promptConfig: {
-        topico: "Desigualdade Social e Saúde",
-        quantidade: 15,
-    } satisfies PromptConfig,
-  // "satisfies" valida que o objeto é compatível com PromptConfig em compilação,
-  // mas mantém o tipo inferido mais estreito (literal types) — diferente de
-  // ": PromptConfig" que alargaria o tipo para string/number genéricos.
-} as const;
+    constructor() {
+        this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+        this.modelo = "gemini-2.5-flash";
+    }
 
-// instancias compartilhadas
-const pdfManager = new PdfManager();
-const promptBuilder = new FlashcardPromptBuilder();
-const geminiService = new GeminiService();
+    async processPDF(url: string, filename: string): Promise<any> {
+        try {
+            console.log(`[1/3] Downloading ${filename}...`);
+            
 
-/**
- * Orquestra o fluxo completo de geração de flashcards.
- * @param pdfSource - URL, caminho local ou Buffer do PDF
- * @param config    - Tópico alvo e quantidade de flashcards
- * @returns         - Array de flashcards prontos para serialização
- * @throws          - Relança qualquer erro após logar — o chamador decide o que fazer
- */
-export async function orquestrarGeracaoFlashcards(
-    pdfSource: string | Buffer,
-    config: PromptConfig
-): Promise<Flashcard[]> {
+            const response = await fetch(url, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`O site bloqueou o download. Status: ${response.status}`);
+            }
 
-    logInicio(config);
+            const pdfBuffer = await response.arrayBuffer();
+            const fileBlob = new Blob([pdfBuffer], { type: "application/pdf" });
 
-    try {
-        // Passo 1: validação e construção do prompt (fail-fast — erros aqui
-        // são de entrada do usuário, antes de qualquer I/O custoso acontecer)
-        const systemPrompt = promptBuilder.build(config);
+            console.log(`[2/3] Sending to gemini servers...`);
+            const file = await this.ai.files.upload({
+                file: fileBlob,
+                config: { displayName: filename },
+            });
 
-        // Passo 2: aquisição do documento (local, URL ou Buffer)
-        const { blob, source, sizeInBytes } = await pdfManager.loadPdf(pdfSource);
-        logDocumentoAdquirido(source, sizeInBytes);
+            if (!file.name) {
+                throw new Error("O upload do arquivo não retornou um nome válido.");
+            }
 
-        // Passo 3: delegação ao serviço de IA
-        const flashcards = await geminiService.generateFlashcards(blob, systemPrompt);
+            let getFile = await this.ai.files.get({name: file.name });
+            while (getFile.state === "PROCESSING") {
+                console.log("Waiting for the IA...");
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                getFile = await this.ai.files.get({name: file.name });
+            }
 
-        return flashcards;
-    } catch (error) {
-        // Centralizamos o log de erro aqui — o chamador (run, rota HTTP, etc.)
-        // recebe o erro limpo e decide sozinho o que fazer com ele.
-        logErro(error);
-        throw error;
+            if (getFile.state === "FAILED") throw new Error("AI failed to process the document.");
+            console.log(`[3/3] Finished!`);
+            return getFile;
+        } catch (erro: any) {
+            console.error(`Critical error in file: ${erro.message}`);
+            throw erro;
+        }
+    }
+
+    async generate(PDFurl: string, instruction: string): Promise<string | null> {
+        try {
+            const file = await this.processPDF(PDFurl, "Material de Estudo");
+            const pdfContent = createPartFromUri(file.uri, file.mimeType);
+
+            console.log(`Gerando Flashcards em JSON...`);
+            const resposta = await this.ai.models.generateContent({
+                model: this.modelo, 
+                contents: [instruction, pdfContent],
+                config: {
+                    responseMimeType: "application/json",
+                }
+            });
+            if (!resposta.text) {
+                throw new Error("O upload do arquivo não retornou um nome válido.");
+              }
+            return resposta.text;
+        } catch (erro: any) {
+            console.error(`Erro ao gerar:`, erro);
+            return null;
+        }
     }
 }
 
-// funções log
-function logInicio(config: PromptConfig): void {
-    const separador = "=".repeat(50);
-    console.log(separador);
-    console.log("  Sistema de Geração de Flashcards");
-    console.log(`  Tópico:     "${config.topico}"`);
-    console.log(`  Quantidade: ${config.quantidade}`);
-    console.log(separador + "\n");
+async function testarSistema() {
+    const gerador = new FlashcardGenerator();
+
+    const instrucao = `
+    Você é um professor especialista em criar materiais de revisão usando a técnica de Active Recall.
+    Analise o documento anexado e gere exatamente 3 flashcards.
+    
+    A sua resposta DEVE ser estritamente um Array (lista) em formato JSON válido, seguindo exatamente esta estrutura:
+    [
+      {
+        "pergunta": "Escreva a pergunta aqui",
+        "resposta": "Escreva a resposta aqui"
+      }
+    ]
+    `;
+    
+    const linkPDF = "https://www.scielo.br/j/csc/a/qyJNfTzPPzWqZ8GYJm4BjLk/?format=pdf&lang=pt";
+    const resultado = await gerador.generate(linkPDF, instrucao);
+
+    console.log("\n=== RESULTADO FINAL ===");
+    console.log(resultado);
 }
 
-function logDocumentoAdquirido(source: string, sizeInBytes: number): void {
-    // toFixed(2) formata o número com 2 casas decimais: "1.23 MB"
-    const tamanhoMb = (sizeInBytes / 1_048_576).toFixed(2); // 1_048_576 = 1024 * 1024
-    console.log(`[Controlador] PDF adquirido via '${source}' (${tamanhoMb} MB).\n`);
-}
-
-function logErro(error: unknown): void {
-    console.error("\n=== FALHA NA OPERAÇÃO ===");
-
-    // "error instanceof Error" faz narrowing: dentro do if, o TypeScript sabe
-    // que "error" tem .message e .cause — fora dele, é "unknown" puro.
-    if (error instanceof GeminiServiceError) {
-        console.error(`Serviço:    ${error.name}`);
-        console.error(`Motivo:     ${error.message}`);
-        if (error.cause) console.error("Causa raiz:", error.cause);
-    } else if (error instanceof Error) {
-        console.error(`Motivo: ${error.message}`);
-    } else {
-        console.error("Erro desconhecido:", error);
-    }
-}
-
-async function run(): Promise<void> {
-    try {
-        const resultado = await orquestrarGeracaoFlashcards(
-            TEST_CONFIG.pdfUrl,
-            TEST_CONFIG.promptConfig
-        );
-
-        console.log("\n=== RESULTADO FINAL ===\n");
-        console.log(JSON.stringify(resultado, null, 2));
-    } catch {
-        console.log("\nExecução interrompida. Verifique os logs acima.");
-        process.exit(1);
-    }
-}
-
-// Entrada e teste local
-const isEntryPoint = process.argv[1]?.endsWith("requisicao.js") 
-                    || process.argv[1]?.endsWith("requisicao.ts");
-
-if (isEntryPoint) {
-    run();
-}
+testarSistema();
