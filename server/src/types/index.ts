@@ -12,3 +12,16 @@ export interface GenerateRequest {
 export interface GenerateResponse {
   flashcards: Flashcard[];
 }
+
+export type PromptConfig = Readonly<{
+  topico: string;
+  quantidade: number;
+}>;
+
+export type PdfSourceKind = "buffer" | "url" | "local-file";
+
+export interface PdfLoadResult {
+  blob: Blob;
+  source: PdfSourceKind;
+  sizeInBytes: number;
+}

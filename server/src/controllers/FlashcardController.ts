@@ -1,5 +1,10 @@
 import type { Request, Response } from "express";
 
+import {
+  GeminiServiceError,
+  FileProcessingTimeoutError,
+  PromptValidationError,
+} from "../errors/index.js";
 import { FlashcardService } from "../services/FlashcardService.js";
 import type { GenerateRequest, GenerateResponse } from "../types/index.js";
 
@@ -35,6 +40,19 @@ export class FlashcardController {
       return res.status(200).json({ flashcards });
     } catch (error) {
       console.error("Erro no controller de flashcards:", error);
+
+      if (error instanceof PromptValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      if (error instanceof FileProcessingTimeoutError) {
+        return res.status(504).json({ error: "O processamento do PDF excedeu o tempo limite." });
+      }
+
+      if (error instanceof GeminiServiceError) {
+        return res.status(502).json({ error: "Erro na comunicação com o serviço de IA." });
+      }
+
       return res.status(500).json({ error: INTERNAL_SERVER_ERROR });
     }
   };

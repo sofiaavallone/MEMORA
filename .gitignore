@@ -8,3 +8,9 @@ server/.env
 client/.env
 client/build/
 client/node_modules/
+.claude/
+vscode/
+.idea/
+*.log
+*.tmp
+*.swp
