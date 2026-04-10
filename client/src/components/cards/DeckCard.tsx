@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Layers } from 'lucide-react'
 import { gsap, ScrollTrigger } from '@/lib/gsap'
-import type { Deck } from '@/types/domain'
+import type { Deck, DeckColor } from '@/types/domain'
 
-const COLOR_MAP: Record<Deck['color'], { from: string; to: string; glow: string }> = {
+const COLOR_MAP: Record<DeckColor, { from: string; to: string; glow: string }> = {
   purple: { from: '#a855f7', to: '#6366f1', glow: 'rgba(168,85,247,0.45)' },
   indigo: { from: '#6366f1', to: '#22d3ee', glow: 'rgba(99,102,241,0.45)' },
   pink: { from: '#ec4899', to: '#a855f7', glow: 'rgba(236,72,153,0.45)' },
@@ -24,12 +25,16 @@ interface DeckCardProps {
   deck: Deck
 }
 
+const FALLBACK_COLORS = COLOR_MAP.purple
+
 export function DeckCard({ deck }: DeckCardProps) {
+  const navigate = useNavigate()
   const cardRef = useRef<HTMLDivElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
-  const colors = COLOR_MAP[deck.color]
+  const colors = COLOR_MAP[deck.color as DeckColor] ?? FALLBACK_COLORS
 
-  const progress = Math.round((deck.studiedCount / deck.cardCount) * 100)
+  const progress =
+    deck.cardCount > 0 ? Math.round((deck.studiedCount / deck.cardCount) * 100) : 0
 
   useEffect(() => {
     const el = cardRef.current
@@ -78,7 +83,17 @@ export function DeckCard({ deck }: DeckCardProps) {
     <article
       ref={cardRef}
       data-reveal
-      className="glass group relative cursor-pointer overflow-hidden p-6 will-change-transform"
+      role="link"
+      tabIndex={0}
+      onClick={() => navigate(`/decks/${deck.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          navigate(`/decks/${deck.id}`)
+        }
+      }}
+      aria-label={`Abrir deck ${deck.title}`}
+      className="glass group relative cursor-pointer overflow-hidden p-6 will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(168,85,247,0.6)]"
     >
       <div
         aria-hidden

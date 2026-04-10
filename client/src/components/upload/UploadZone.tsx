@@ -1,45 +1,49 @@
-import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
-import { FileText, Sparkles, UploadCloud } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Link2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Slider } from '@/components/ui/Slider'
 import { useDeckStore } from '@/stores/useDeckStore'
-import { cn } from '@/lib/cn'
 
 export function UploadZone() {
+  const navigate = useNavigate()
   const [topic, setTopic] = useState('')
   const [qty, setQty] = useState(20)
-  const [file, setFile] = useState<File | null>(null)
-  const [dragging, setDragging] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [pdfUrl, setPdfUrl] = useState('')
+  const [sourceName, setSourceName] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   const generating = useDeckStore((s) => s.generating)
   const generate = useDeckStore((s) => s.generate)
-
-  const handleFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    setFile(files[0])
-    if (!topic) setTopic(files[0].name.replace(/\.[^.]+$/, ''))
-  }
-
-  const onDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setDragging(false)
-    handleFiles(e.dataTransfer.files)
-  }
-
-  const onPickFile = (e: ChangeEvent<HTMLInputElement>) => {
-    handleFiles(e.target.files)
-  }
+  const storeError = useDeckStore((s) => s.error)
 
   const canSubmit = topic.trim().length > 2 && !generating
 
   const handleGenerate = async () => {
+    setError(null)
     if (!canSubmit) return
-    await generate(topic.trim(), qty)
-    setTopic('')
-    setFile(null)
+    if (pdfUrl && !/^https?:\/\//i.test(pdfUrl)) {
+      setError('Informe uma URL de PDF válida (http/https) ou deixe em branco.')
+      return
+    }
+    try {
+      const deck = await generate({
+        topic: topic.trim(),
+        quantity: qty,
+        ...(pdfUrl.trim() ? { pdfUrl: pdfUrl.trim() } : {}),
+        ...(sourceName.trim() ? { sourceName: sourceName.trim() } : {}),
+      })
+      setTopic('')
+      setPdfUrl('')
+      setSourceName('')
+      navigate(`/decks/${deck.id}`)
+    } catch {
+      // erro já vai para o store; exibido abaixo
+    }
   }
+
+  const displayError = error ?? storeError
 
   return (
     <section
@@ -47,75 +51,65 @@ export function UploadZone() {
       className="conic-border glass-strong relative overflow-hidden p-6 md:p-8"
     >
       <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
-        {/* LEFT: Drag-drop */}
-        <div
-          onDragOver={(e) => {
-            e.preventDefault()
-            setDragging(true)
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          onClick={() => fileRef.current?.click()}
-          className={cn(
-            'relative flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border border-dashed px-6 py-10 text-center transition-all',
-            dragging
-              ? 'border-[rgba(168,85,247,0.7)] bg-white/[0.06]'
-              : 'border-[var(--color-border-strong)] bg-white/[0.02] hover:bg-white/[0.04]',
-          )}
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            className="hidden"
-            accept=".pdf,.txt,.md,.docx"
-            onChange={onPickFile}
-          />
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#a855f7,#6366f1)] text-white shadow-[0_16px_40px_-10px_rgba(168,85,247,0.6)]">
-            <UploadCloud size={22} strokeWidth={1.5} />
-          </div>
-          {file ? (
-            <div className="flex items-center gap-2 text-sm text-[var(--color-text)]">
-              <FileText size={16} strokeWidth={1.5} />
-              <span className="font-medium">{file.name}</span>
-              <span className="text-[var(--color-text-dim)]">
-                ({(file.size / 1024).toFixed(0)} KB)
-              </span>
-            </div>
-          ) : (
-            <>
-              <p className="font-display text-lg font-semibold leading-snug tracking-tight text-[var(--color-text)]">
-                Arraste um PDF, TXT ou Markdown
-              </p>
-              <p className="text-xs text-[var(--color-text-muted)]">
-                ou clique para selecionar · até 10 MB
-              </p>
-            </>
-          )}
-        </div>
-
-        {/* RIGHT: Controls */}
-        <div className="flex flex-col justify-between gap-6">
-          <div className="space-y-5">
-            <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-[var(--color-text-dim)]">
-                Tópico do deck
-              </label>
-              <Input
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="Ex: Fisiologia cardiovascular"
-                leftIcon={<Sparkles size={16} strokeWidth={1.5} />}
-              />
-            </div>
-            <Slider
-              value={qty}
-              min={5}
-              max={50}
-              step={5}
-              onChange={setQty}
-              label="Quantidade de cards"
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-[var(--color-text-dim)]">
+              Tópico do deck *
+            </label>
+            <Input
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="Ex: Fisiologia cardiovascular"
+              leftIcon={<Sparkles size={16} strokeWidth={1.5} />}
             />
           </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-[var(--color-text-dim)]">
+              URL de um PDF (opcional)
+            </label>
+            <Input
+              value={pdfUrl}
+              onChange={(e) => setPdfUrl(e.target.value)}
+              placeholder="https://exemplo.com/material.pdf"
+              leftIcon={<Link2 size={16} strokeWidth={1.5} />}
+            />
+            <p className="mt-1.5 text-[11px] text-[var(--color-text-dim)]">
+              Se informado, a IA vai usar o PDF como fonte. Caso contrário, gera apenas com o tópico.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-[var(--color-text-dim)]">
+              Nome da fonte (opcional)
+            </label>
+            <Input
+              value={sourceName}
+              onChange={(e) => setSourceName(e.target.value)}
+              placeholder="Ex: Capítulo 4 — Guyton"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col justify-between gap-6">
+          <Slider
+            value={qty}
+            min={5}
+            max={50}
+            step={5}
+            onChange={setQty}
+            label="Quantidade de cards"
+          />
+
+          {displayError && (
+            <p
+              role="alert"
+              aria-live="polite"
+              className="rounded-lg border border-[rgba(236,72,153,0.3)] bg-[rgba(236,72,153,0.08)] px-3 py-2 text-xs text-[#fda4af]"
+            >
+              {displayError}
+            </p>
+          )}
 
           <Button
             onClick={handleGenerate}

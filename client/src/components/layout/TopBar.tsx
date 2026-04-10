@@ -11,13 +11,9 @@ function greet(): string {
   return 'Boa noite'
 }
 
-interface TopBarProps {
-  onOpenAuth(): void
-}
-
-export function TopBar({ onOpenAuth }: TopBarProps) {
+export function TopBar() {
   const user = useAuthStore((s) => s.user)
-  const name = user?.name ?? 'visitante'
+  const firstName = user?.name?.trim().split(' ')[0] ?? 'visitante'
 
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -26,8 +22,7 @@ export function TopBar({ onOpenAuth }: TopBarProps) {
           Painel
         </p>
         <h2 className="mt-1 font-display text-[clamp(24px,2.4vw,32px)] font-semibold leading-tight tracking-tight">
-          {greet()},{' '}
-          <span className="gradient-text">{name.split(' ')[0]}</span>.
+          {greet()}, <span className="gradient-text">{firstName}</span>.
         </h2>
       </div>
       <div className="flex items-center gap-3">
@@ -45,11 +40,6 @@ export function TopBar({ onOpenAuth }: TopBarProps) {
         <Button variant="icon" aria-label="Notificações">
           <Bell size={18} strokeWidth={1.5} />
         </Button>
-        {!user && (
-          <Button variant="outline" size="sm" onClick={onOpenAuth}>
-            Entrar
-          </Button>
-        )}
       </div>
     </div>
   )

@@ -118,7 +118,8 @@ export class AuthController {
       }
 
       const email = payload.email.toLowerCase();
-      const name = payload.name ?? payload.given_name ?? email.split("@")[0];
+      const name: string =
+        payload.name ?? payload.given_name ?? email.split("@")[0] ?? email;
       const avatarUrl = payload.picture ?? null;
       const googleId = payload.sub;
 

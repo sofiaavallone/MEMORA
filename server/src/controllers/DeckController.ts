@@ -21,7 +21,8 @@ const generateSchema = z.object({
 });
 
 function pickColor(): DeckColor {
-  return DECK_COLORS[Math.floor(Math.random() * DECK_COLORS.length)];
+  const idx = Math.floor(Math.random() * DECK_COLORS.length);
+  return DECK_COLORS[idx] ?? "purple";
 }
 
 function serializeDeck(deck: {
@@ -94,7 +95,8 @@ export class DeckController {
 
   get = async (req: Request, res: Response): Promise<Response> => {
     const { userId } = req as AuthedRequest;
-    const { id } = req.params;
+    const id = String(req.params.id ?? "");
+    if (!id) return res.status(400).json({ error: "ID do deck ausente." });
 
     const deck = await prisma.deck.findFirst({
       where: { id, userId },
@@ -127,7 +129,8 @@ export class DeckController {
 
   remove = async (req: Request, res: Response): Promise<Response> => {
     const { userId } = req as AuthedRequest;
-    const { id } = req.params;
+    const id = String(req.params.id ?? "");
+    if (!id) return res.status(400).json({ error: "ID do deck ausente." });
 
     const deck = await prisma.deck.findFirst({ where: { id, userId }, select: { id: true } });
     if (!deck) {
@@ -148,11 +151,9 @@ export class DeckController {
     const { topic, quantity, pdfUrl, sourceName } = parsed.data;
 
     try {
-      const flashcards = await this.flashcardService.generate({
-        topic,
-        quantity,
-        pdfUrl,
-      });
+      const flashcards = await this.flashcardService.generate(
+        pdfUrl ? { topic, quantity, pdfUrl } : { topic, quantity }
+      );
 
       const deck = await prisma.deck.create({
         data: {

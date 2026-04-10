@@ -1,35 +1,46 @@
-import { useRef, useState } from 'react'
-import { AtmosphereBg } from '@/components/layout/AtmosphereBg'
-import { Hero } from '@/components/sections/Hero'
-import { Dashboard } from '@/components/sections/Dashboard'
-import { AuthModal } from '@/components/auth/AuthModal'
-import { getLenis } from '@/lib/smooth-scroll'
+import { useEffect } from 'react'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AppShell } from '@/components/layout/AppShell'
+import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
+import { AuthPage } from '@/pages/AuthPage'
+import { DashboardPage } from '@/pages/DashboardPage'
+import { DecksPage } from '@/pages/DecksPage'
+import { DeckDetailPage } from '@/pages/DeckDetailPage'
+import { StatsPage } from '@/pages/StatsPage'
+import { ProfilePage } from '@/pages/ProfilePage'
+import { UploadPage } from '@/pages/UploadPage'
+import { useAuthStore } from '@/stores/useAuthStore'
 
 function App() {
-  const [authOpen, setAuthOpen] = useState(false)
-  const dashboardRef = useRef<HTMLElement>(null)
+  const bootstrap = useAuthStore((s) => s.bootstrap)
+  const loadConfig = useAuthStore((s) => s.loadConfig)
 
-  const scrollToDashboard = () => {
-    const el = dashboardRef.current
-    if (!el) return
-    const lenis = getLenis()
-    if (lenis) {
-      lenis.scrollTo(el, { offset: -40, duration: 1.2 })
-    } else {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }
+  useEffect(() => {
+    void bootstrap()
+    void loadConfig()
+  }, [bootstrap, loadConfig])
 
   return (
-    <div className="atmosphere-noise relative min-h-screen">
-      <AtmosphereBg />
-      <Hero
-        onOpenAuth={() => setAuthOpen(true)}
-        onScrollToDashboard={scrollToDashboard}
-      />
-      <Dashboard ref={dashboardRef} onOpenAuth={() => setAuthOpen(true)} />
-      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/auth" element={<AuthPage />} />
+        <Route
+          element={
+            <ProtectedRoute>
+              <AppShell />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<DashboardPage />} />
+          <Route path="/decks" element={<DecksPage />} />
+          <Route path="/decks/:id" element={<DeckDetailPage />} />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/stats" element={<StatsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 

@@ -1,78 +1,81 @@
+import { http } from '@/lib/httpClient'
 import type {
+  AuthConfig,
+  AuthResponse,
   Deck,
+  GenerateDeckInput,
   LoginInput,
   RegisterInput,
   Stats,
   Streak,
   User,
 } from '@/types/domain'
-import { mockDecks, mockStats, mockStreak, mockUser } from './mockData'
 
 export interface Api {
-  login(input: LoginInput): Promise<User>
-  register(input: RegisterInput): Promise<User>
+  getAuthConfig(): Promise<AuthConfig>
+  login(input: LoginInput): Promise<AuthResponse>
+  register(input: RegisterInput): Promise<AuthResponse>
+  loginWithGoogle(idToken: string): Promise<AuthResponse>
+  me(): Promise<User>
   logout(): Promise<void>
   getDecks(): Promise<Deck[]>
-  generateDeck(topic: string, qty: number): Promise<Deck>
+  getDeck(id: string): Promise<Deck>
+  deleteDeck(id: string): Promise<void>
+  generateDeck(input: GenerateDeckInput): Promise<Deck>
   getStats(): Promise<Stats>
   getStreak(): Promise<Streak>
+  createSession(input: {
+    deckId: string
+    durationSec: number
+    cardsStudied: number
+    cardsCorrect: number
+    masteredIds?: string[]
+  }): Promise<void>
 }
 
-const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
+export const api: Api = {
+  getAuthConfig: () => http.get<AuthConfig>('/auth/config', { auth: false }),
 
-const COLORS: Deck['color'][] = ['purple', 'indigo', 'pink', 'cyan']
+  login: (input) => http.post<AuthResponse>('/auth/login', input, { auth: false }),
 
-function createMockApi(): Api {
-  let decks = [...mockDecks]
+  register: (input) => http.post<AuthResponse>('/auth/register', input, { auth: false }),
 
-  return {
-    async login(input) {
-      await delay(800)
-      if (!input.email.includes('@') || input.password.length < 6) {
-        throw new Error('Credenciais inválidas.')
-      }
-      return { ...mockUser, email: input.email }
-    },
-    async register(input) {
-      await delay(900)
-      if (input.password.length < 6) {
-        throw new Error('A senha deve ter ao menos 6 caracteres.')
-      }
-      return { ...mockUser, name: input.name, email: input.email }
-    },
-    async logout() {
-      await delay(150)
-    },
-    async getDecks() {
-      await delay(250)
-      return decks
-    },
-    async generateDeck(topic, qty) {
-      await delay(1200)
-      const id = `d_${Math.random().toString(36).slice(2, 8)}`
-      const newDeck: Deck = {
-        id,
-        title: topic,
-        topic: topic,
-        cardCount: qty,
-        studiedCount: 0,
-        accuracy: 0,
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        updatedAt: new Date().toISOString(),
-        cards: [],
-      }
-      decks = [newDeck, ...decks]
-      return newDeck
-    },
-    async getStats() {
-      await delay(200)
-      return mockStats
-    },
-    async getStreak() {
-      await delay(150)
-      return mockStreak
-    },
-  }
+  loginWithGoogle: (idToken) =>
+    http.post<AuthResponse>('/auth/google', { idToken }, { auth: false }),
+
+  me: async () => {
+    const res = await http.get<{ user: User }>('/auth/me')
+    return res.user
+  },
+
+  logout: () => http.post<void>('/auth/logout'),
+
+  getDecks: async () => {
+    const res = await http.get<{ decks: Deck[] }>('/decks')
+    return res.decks
+  },
+
+  getDeck: async (id) => {
+    const res = await http.get<{ deck: Deck }>(`/decks/${id}`)
+    return res.deck
+  },
+
+  deleteDeck: (id) => http.delete<void>(`/decks/${id}`),
+
+  generateDeck: async (input) => {
+    const res = await http.post<{ deck: Deck }>('/decks/generate', input)
+    return res.deck
+  },
+
+  getStats: async () => {
+    const res = await http.get<{ stats: Stats }>('/stats/overview')
+    return res.stats
+  },
+
+  getStreak: async () => {
+    const res = await http.get<{ streak: Streak }>('/stats/streak')
+    return res.streak
+  },
+
+  createSession: (input) => http.post<void>('/sessions', input),
 }
-
-export const api: Api = createMockApi()

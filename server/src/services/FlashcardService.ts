@@ -3,7 +3,13 @@ import { PdfManager } from "../utils/PdfManager.js";
 import { GeminiService } from "./GeminiService.js";
 import type { Flashcard } from "../types/index.js";
 
-/** Serviço orquestrador para geração de flashcards a partir de PDFs via IA. */
+export interface GenerateFlashcardsInput {
+  topic: string;
+  quantity: number;
+  pdfUrl?: string;
+}
+
+/** Serviço orquestrador para geração de flashcards via IA. */
 export class FlashcardService {
   private readonly pdfManager: PdfManager;
   private readonly promptBuilder: FlashcardPromptBuilder;
@@ -15,14 +21,16 @@ export class FlashcardService {
     this.geminiService = new GeminiService();
   }
 
-  async generate(pdfUrl: string, topic: string, quantity: number): Promise<Flashcard[]> {
+  async generate({ topic, quantity, pdfUrl }: GenerateFlashcardsInput): Promise<Flashcard[]> {
     // 1. Construir o prompt (fail-fast — valida antes de qualquer I/O)
     const prompt = this.promptBuilder.build({ topico: topic, quantidade: quantity });
 
-    // 2. Adquirir o PDF via PdfManager
-    const { blob } = await this.pdfManager.loadPdf(pdfUrl);
+    // 2. Se houver PDF, anexa-o ao Gemini; caso contrário, gera somente a partir do tópico
+    if (pdfUrl) {
+      const { blob } = await this.pdfManager.loadPdf(pdfUrl);
+      return this.geminiService.generateFlashcards(blob, prompt);
+    }
 
-    // 3. Gerar flashcards via GeminiService
-    return this.geminiService.generateFlashcards(blob, prompt);
+    return this.geminiService.generateFlashcardsFromPrompt(prompt);
   }
 }

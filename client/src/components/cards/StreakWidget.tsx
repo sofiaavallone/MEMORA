@@ -25,8 +25,8 @@ export function StreakWidget() {
     }
   }, [])
 
-  const days = streak?.currentDays ?? 7
-  const last7 = streak?.last7 ?? Array(7).fill(true)
+  const days = streak?.current ?? 0
+  const last7 = streak?.last7 ?? []
 
   return (
     <div className="glass relative overflow-hidden p-4">
@@ -49,23 +49,27 @@ export function StreakWidget() {
           <p className="font-mono text-[22px] font-semibold leading-none tracking-tight">
             {days}
             <span className="ml-1.5 font-sans text-xs font-normal text-[var(--color-text-muted)]">
-              dias
+              {days === 1 ? 'dia' : 'dias'}
             </span>
           </p>
         </div>
       </div>
       <div className="relative mt-4 flex items-center gap-1.5">
-        {last7.map((studied, i) => (
-          <span
-            key={i}
-            className={cn(
-              'h-1.5 flex-1 rounded-full',
-              studied
-                ? 'bg-[linear-gradient(90deg,#f97316,#ec4899)]'
-                : 'bg-white/10',
-            )}
-          />
-        ))}
+        {Array.from({ length: 7 }).map((_, i) => {
+          const day = last7[i]
+          const active = day?.active ?? false
+          return (
+            <span
+              key={i}
+              className={cn(
+                'h-1.5 flex-1 rounded-full',
+                active
+                  ? 'bg-[linear-gradient(90deg,#f97316,#ec4899)]'
+                  : 'bg-white/10',
+              )}
+            />
+          )
+        })}
       </div>
     </div>
   )

@@ -2,45 +2,61 @@ export interface User {
   id: string
   name: string
   email: string
-  avatarUrl?: string
+  avatarUrl?: string | null
+  createdAt: string
 }
 
 export interface Flashcard {
   id: string
-  front: string
-  back: string
+  question: string
+  answer: string
   mastered: boolean
+  order: number
 }
+
+export type DeckColor = 'purple' | 'indigo' | 'pink' | 'cyan'
 
 export interface Deck {
   id: string
   title: string
   topic: string
+  color: DeckColor
+  sourceName: string | null
   cardCount: number
   studiedCount: number
   accuracy: number // 0..1
-  color: 'purple' | 'indigo' | 'pink' | 'cyan'
-  updatedAt: string // ISO
-  cards: Flashcard[]
+  createdAt: string
+  updatedAt: string
+  flashcards?: Flashcard[]
+  totalDurationSec?: number
+}
+
+export interface StatsSparklinePoint {
+  date: string
+  value: number
 }
 
 export interface Stats {
-  totalDecks: number
-  studiedToday: number
-  accuracy: number // 0..1
-  minutesToday: number
-  sparkline: {
-    decks: number[]
-    studied: number[]
-    accuracy: number[]
-    minutes: number[]
-  }
+  deckCount: number
+  flashcardCount: number
+  cardsStudied: number
+  cardsCorrect: number
+  accuracy: number
+  totalDurationSec: number
+  sparkline: StatsSparklinePoint[]
+}
+
+export interface StreakDay {
+  date: string
+  active: boolean
 }
 
 export interface Streak {
-  currentDays: number
-  bestDays: number
-  last7: boolean[] // true = studied that day
+  current: number
+  longest: number
+  lastStudiedAt: string | null
+  last7: StreakDay[]
+  daysSinceLast: number | null
 }
 
 export interface LoginInput {
@@ -52,4 +68,21 @@ export interface RegisterInput {
   name: string
   email: string
   password: string
+}
+
+export interface AuthResponse {
+  user: User
+  token: string
+}
+
+export interface AuthConfig {
+  googleOAuth: boolean
+  googleClientId: string | null
+}
+
+export interface GenerateDeckInput {
+  topic: string
+  quantity: number
+  pdfUrl?: string
+  sourceName?: string
 }
