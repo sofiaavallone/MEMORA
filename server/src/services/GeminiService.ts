@@ -8,7 +8,7 @@ import {
 import type { Flashcard } from "../types/index.js";
 
 const GEMINI_CONFIG = {
-  model: "gemini-2.0-flash-lite",
+  model: "gemini-2.5-flash-lite",
   pollingIntervalMs: 3_000,
   maxPollingAttempts: 20,
   uploadDisplayName: "Material_Flashcards.pdf",
