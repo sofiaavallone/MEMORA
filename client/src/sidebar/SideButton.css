@@ -1,0 +1,26 @@
+.side-button {
+  width: 100%;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border: none;
+  border-radius: 10px;
+  background-color: #f8f9fa; 
+  color: #666;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: block;
+}
+
+.side-button:hover:not(.active) {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.side-button.active {
+  background: linear-gradient(135deg, #a356bb 0%, #800080 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(128, 0, 128, 0.2);
+}
