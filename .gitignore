@@ -4,3 +4,13 @@ dist/
 .DS_Store
 server/prisma/*.db
 server/prisma/*.db-journal
+server/.env
+client/.env
+client/build/
+client/node_modules/
+.claude/
+vscode/
+.idea/
+*.log
+*.tmp
+*.swp
