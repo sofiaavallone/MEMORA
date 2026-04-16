@@ -80,23 +80,22 @@ function TelaLogin(prop:telalogin){
     //função de envio
 
     async function enviarModal(){
-        //criaria um objeto FormData()
-        const objetoEnvio:FormData = new FormData()
-        //transformaria o objetoModal em .json
-        //daria append no objeto FormData()
-        objetoEnvio.append(
+        const objetoEnvio:FormData = new FormData()//criar um objeto FormData()
+        
+        objetoEnvio.append(//dar append na versão json do objeto
             "informações login e cadastro",
-            JSON.stringify(objetoModal)
+            JSON.stringify(objetoModal)//provavelmente vai ser melhor para esse caso só mandar o json
         )
         //faria o fetch() do tipo POST
         
-        const response = await fetch(
-                                     "http://localhost:3001/api/generate",
-                                     {method: "POST",
-                                      body: objetoEnvio}
-                                    )
-        
-        console.log(response)
+        //const response = await fetch(
+        //                             "URL",
+        //                             {method: "POST",
+        //                              body: objetoEnvio}
+        //                            )
+        //
+        //console.log(response)
+
         //resetar tudo
         callSair()
     }

@@ -1,3 +1,4 @@
+@import "tailwindcss";
 #upload_input {
   display: none;
 }

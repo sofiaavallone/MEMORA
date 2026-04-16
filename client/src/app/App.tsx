@@ -1,14 +1,7 @@
-import { useState } from 'react'
-import Sidebar from "../sidebar/sidebar.tsx"
-import Mainbar from "../mainbar/mainbar.tsx"
-import './App.css'
+import TelaHome from "./telaHome/index.tsx"
 
 
 function App() {
-  
-  /*class User{
-
-  }*/
 
   class Flashcard{
 
@@ -45,43 +38,20 @@ function App() {
       this.cards_revisados = 0;
     }
   }
-  
-  //set inicial para protótipagem
-  const [decks, setDecks] = useState<Array<Deck>>(//por enquanto setDecks não está sendo usado
-                                                  //porém talvez seja importante no futuro,
-                                                  //por isso o array de decks já foi implementado desse jeito
-    [
-      new Deck("Matemática",[new Flashcard("2+2","4"),
-                             new Flashcard("em qual ponto 2x+1 toca o eixo x?","(-0.5,0)")
-      ]),
-  
-      new Deck("Inglês",[new Flashcard("how ___ you do?", "do"),
-                         new Flashcard("traduza:\nhave you seen him?", "você viu ele?"),
-                         new Flashcard("traduza:\neu moro em recife","I live in recife")]),
-      
-      new Deck("Geografia",[new Flashcard("onde fica a pedra do claranã?","bodocó")])
-    ]
-  )
-  const [page_state, setPage] = useState<string>("upload")//variável de página atual
-                                                          //usada para navegar pelo site
-  const [current_deck, setCurrent] = useState<number>(0)//variável de deck atual
-                                                        //usada para escolher um deck e mostrá-lo
 
-  return(
-  <>
-    <Sidebar state={page_state}
-             change={setPage}
-             array={decks}/>
-    <Mainbar state={page_state}//variável que representa o estado atual
-             change={setPage}//função que muda o estado atual
-             array={decks}//array que contém todos os decks
-             set_decks={setDecks}
-             current_deck={current_deck}//variável que diz o deck que está sendo usado
-                                        //importante para permitir que os botões de deck entrem no deck certo
-             def_current_deck={setCurrent}//função que altera a variável de deck atual
-             />
-  </>
-  )
+  class User{
+    nome:string;
+    decks:Array<Deck>;
+    constructor(nome:string,
+                decks:Array<Deck>)
+    {
+      this.nome = nome;
+      this.decks = decks;
+    }
+  }
+
+  return(<TelaHome/>)
+  
 }
 
 //export do componente App e de suas classes para propósito de tipagem
@@ -107,7 +77,7 @@ export   class Flashcard{
 // eslint-disable-next-line react-refresh/only-export-components
 export class Deck{
 
-    título:string;
+  título:string;
     flashcards:Array<Flashcard>;
     taxa_de_acerto:number;
     estado_atual:Array<number>;
@@ -121,5 +91,15 @@ export class Deck{
       this.taxa_de_acerto = 0;
       this.estado_atual = [0,0];
       this.cards_revisados = 0;
+    }
+  }
+  export class User{
+    nome:string;
+    decks:Array<Deck>;
+    constructor(nome:string,
+                decks:Array<Deck>)
+    {
+      this.nome = nome;
+      this.decks = decks;
     }
   }

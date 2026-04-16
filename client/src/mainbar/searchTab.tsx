@@ -1,8 +1,13 @@
 import './SearchTab.css'
-
-function SearchTab() {
+type searchtab = {
+  setFilter:Function
+}
+function SearchTab(prop:searchtab) {
+  function testFunc(event:React.ChangeEvent<HTMLInputElement>){
+    prop.setFilter(String(event.target.value))
+  }
   return (
-    <div className="search-container">
+    <div onChange={testFunc}className="search-container">
       <input 
         type="text" 
         placeholder="Buscar nos seus decks..." 

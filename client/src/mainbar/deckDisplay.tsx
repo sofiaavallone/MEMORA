@@ -23,6 +23,7 @@ type deckdisplay = {
   change:Function//talvez seja alterado? parece não ser recomendado
   array:Array<Deck>
   def_current_deck:Function
+  filter:string
 }
 
 function DeckDisplay(prop:deckdisplay){
@@ -32,6 +33,11 @@ function DeckDisplay(prop:deckdisplay){
     let outArray:Array<React.ReactNode> = []//array temporário para output
     for (let i=0; i<prop.array.length; i = i+1){
       //adiciona um novo botão que corresponde ao deck daquele index
+      if (prop.filter!=""){
+        if (prop.array[i].título.toUpperCase().indexOf(prop.filter.toUpperCase())==(-1)){
+          continue
+        }
+      }
       outArray.push(
         <DeckButton key={i}//a chave não é utilizada, é apenas uma ajuda para o react renderizar o componente
                     index={i}

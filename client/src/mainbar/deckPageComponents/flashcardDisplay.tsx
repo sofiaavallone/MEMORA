@@ -21,9 +21,11 @@ function FlashcardDisplay(prop:flashcarddisplay){
     let flashcard_index:number = deck.estado_atual[0];
     let flashcard_state:number = deck.estado_atual[1];
 
-    function rerender(){
+    async function updateDeck(){
         let tempArray:Array<Deck> = [...prop.array]
         tempArray[prop.index] = deck
+        fazer_taxa_de_acerto()
+        //aqui teria também o fetch para atualização do deck
         prop.set_decks(tempArray)
     }
 
@@ -37,7 +39,7 @@ function FlashcardDisplay(prop:flashcarddisplay){
             deck.estado_atual[0]=flashcard_index
             deck.cards_revisados-=1
         }
-        rerender()
+        updateDeck()
     }
 
     function avançar(){//função para avançar o flashcard ao mudar os indexes e rerenderizar a página
@@ -52,7 +54,7 @@ function FlashcardDisplay(prop:flashcarddisplay){
             deck.estado_atual[0]=flashcard_index
             deck.estado_atual[1]=flashcard_state
         }
-        rerender()
+        updateDeck()
     }
 
     function acertar(){//função que marca o flashcard como certo
@@ -93,7 +95,6 @@ function FlashcardDisplay(prop:flashcarddisplay){
         }
         }
     else {
-        fazer_taxa_de_acerto()
         console.log(deck)
         return(<div>Você terminou o deck de {deck.título} por hoje!
                  <br/>
