@@ -12,6 +12,9 @@ export interface Flashcard {
   answer: string
   mastered: boolean
   order: number
+  nextReviewAt: string
+  interval: number
+  correctCount: number
 }
 
 export type DeckColor = 'purple' | 'indigo' | 'pink' | 'cyan'
@@ -73,6 +76,27 @@ export interface RegisterInput {
 export interface AuthResponse {
   user: User
   token: string
+}
+
+export type FlashcardReviewResult = 'correct' | 'incorrect'
+
+export interface StudySessionSummary {
+  id: string
+  deckId: string
+  startedAt: string
+  durationSec: number
+  cardsStudied: number
+  cardsCorrect: number
+}
+
+export interface ReviewFlashcardInput {
+  result: FlashcardReviewResult
+  durationSec?: number
+}
+
+export interface ReviewFlashcardResponse {
+  flashcard: Flashcard
+  session: StudySessionSummary
 }
 
 export interface AuthConfig {

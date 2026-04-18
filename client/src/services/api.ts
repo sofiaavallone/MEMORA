@@ -6,6 +6,8 @@ import type {
   GenerateDeckInput,
   LoginInput,
   RegisterInput,
+  ReviewFlashcardInput,
+  ReviewFlashcardResponse,
   Stats,
   Streak,
   User,
@@ -24,6 +26,7 @@ export interface Api {
   generateDeck(input: GenerateDeckInput): Promise<Deck>
   getStats(): Promise<Stats>
   getStreak(): Promise<Streak>
+  reviewFlashcard(id: string, input: ReviewFlashcardInput): Promise<ReviewFlashcardResponse>
   createSession(input: {
     deckId: string
     durationSec: number
@@ -76,6 +79,9 @@ export const api: Api = {
     const res = await http.get<{ streak: Streak }>('/stats/streak')
     return res.streak
   },
+
+  reviewFlashcard: (id, input) =>
+    http.post<ReviewFlashcardResponse>(`/flashcards/${id}/review`, input),
 
   createSession: (input) => http.post<void>('/sessions', input),
 }

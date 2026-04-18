@@ -51,17 +51,21 @@ model Deck {
 }
 
 model Flashcard {
-  id        String   @id @default(cuid())
-  question  String
-  answer    String
-  mastered  Boolean  @default(false)
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  question     String
+  answer       String
+  mastered     Boolean  @default(false)
+  order        Int      @default(0)
+  nextReviewAt DateTime @default(now())
+  interval     Int      @default(1)
+  correctCount Int      @default(0)
+  createdAt    DateTime @default(now())
 
   deckId String
   deck   Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
 
   @@index([deckId])
+  @@index([deckId, nextReviewAt])
 }
 
 model StudySession {

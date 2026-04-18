@@ -25,6 +25,28 @@ function pickColor(): DeckColor {
   return DECK_COLORS[idx] ?? "purple";
 }
 
+function serializeFlashcard(flashcard: {
+  id: string;
+  question: string;
+  answer: string;
+  mastered: boolean;
+  order: number;
+  nextReviewAt: Date;
+  interval: number;
+  correctCount: number;
+}) {
+  return {
+    id: flashcard.id,
+    question: flashcard.question,
+    answer: flashcard.answer,
+    mastered: flashcard.mastered,
+    order: flashcard.order,
+    nextReviewAt: flashcard.nextReviewAt.toISOString(),
+    interval: flashcard.interval,
+    correctCount: flashcard.correctCount,
+  };
+}
+
 function serializeDeck(deck: {
   id: string;
   title: string;
@@ -33,7 +55,16 @@ function serializeDeck(deck: {
   sourceName: string | null;
   createdAt: Date;
   updatedAt: Date;
-  flashcards?: { id: string; question: string; answer: string; mastered: boolean; order: number }[];
+  flashcards?: {
+    id: string;
+    question: string;
+    answer: string;
+    mastered: boolean;
+    order: number;
+    nextReviewAt: Date;
+    interval: number;
+    correctCount: number;
+  }[];
   _count?: { flashcards: number; sessions: number };
 }) {
   const totalCards = deck._count?.flashcards ?? deck.flashcards?.length ?? 0;
@@ -46,13 +77,7 @@ function serializeDeck(deck: {
     cardCount: totalCards,
     createdAt: deck.createdAt.toISOString(),
     updatedAt: deck.updatedAt.toISOString(),
-    flashcards: deck.flashcards?.map((f) => ({
-      id: f.id,
-      question: f.question,
-      answer: f.answer,
-      mastered: f.mastered,
-      order: f.order,
-    })),
+    flashcards: deck.flashcards?.map(serializeFlashcard),
   };
 }
 

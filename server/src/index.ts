@@ -6,6 +6,7 @@ import type { NextFunction, Request, Response } from "express";
 import { env } from "./lib/env.js";
 import { createAuthRoutes } from "./routes/authRoutes.js";
 import { createDeckRoutes } from "./routes/deckRoutes.js";
+import { createFlashcardRoutes } from "./routes/flashcardRoutes.js";
 import { createStatsRoutes } from "./routes/statsRoutes.js";
 import { createStudySessionRoutes } from "./routes/studySessionRoutes.js";
 
@@ -34,6 +35,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/auth", createAuthRoutes());
 app.use("/api/decks", createDeckRoutes());
+app.use("/api/flashcards", createFlashcardRoutes());
 app.use("/api/stats", createStatsRoutes());
 app.use("/api/sessions", createStudySessionRoutes());
 

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
-import { AuthPage } from '@/pages/AuthPage'
+import { AuthPageScreen } from '@/pages/AuthPageScreen'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { DecksPage } from '@/pages/DecksPage'
 import { DeckDetailPage } from '@/pages/DeckDetailPage'
@@ -23,7 +23,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/auth" element={<AuthPageScreen />} />
         <Route
           element={
             <ProtectedRoute>

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { Lock, LogIn, Mail, User as UserIcon } from 'lucide-react'
+
+import MemoraWordmark from '@/assets/brand/Memora.svg'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuthStore } from '@/stores/useAuthStore'
-import MemoraWordmark from '@/assets/brand/Memora.svg'
 
 type Mode = 'login' | 'register'
 
@@ -16,7 +17,7 @@ let googleIdentityScriptPromise: Promise<void> | null = null
 
 function loadGoogleIdentityScript(): Promise<void> {
   if (typeof window === 'undefined') {
-    return Promise.reject(new Error('Google Identity Services indisponível.'))
+    return Promise.reject(new Error('Google Identity Services indisponivel.'))
   }
 
   if (window.google?.accounts.id) {
@@ -30,6 +31,11 @@ function loadGoogleIdentityScript(): Promise<void> {
       )
 
       if (existingScript) {
+        if (window.google?.accounts.id) {
+          resolve()
+          return
+        }
+
         existingScript.addEventListener('load', () => resolve(), { once: true })
         existingScript.addEventListener(
           'error',
@@ -53,7 +59,7 @@ function loadGoogleIdentityScript(): Promise<void> {
   return googleIdentityScriptPromise
 }
 
-export function AuthPage() {
+export function AuthPageScreen() {
   const [mode, setMode] = useState<Mode>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -105,7 +111,7 @@ export function AuthPage() {
           callback: ({ credential }) => {
             const idToken = credential?.trim()
             if (!idToken) {
-              setLocalError('Não foi possível obter a credencial do Google.')
+              setLocalError('Nao foi possivel obter a credencial do Google.')
               return
             }
 
@@ -158,7 +164,7 @@ export function AuthPage() {
     setLocalError(null)
 
     if (!email.includes('@')) {
-      setLocalError('Email inválido.')
+      setLocalError('Email invalido.')
       return
     }
     if (password.length < 6) {
@@ -207,7 +213,7 @@ export function AuthPage() {
             </h1>
             <p className="mt-1 text-sm text-[var(--color-text-muted)]">
               {mode === 'login'
-                ? 'Entre para acessar seus decks e estatísticas.'
+                ? 'Entre para acessar seus decks e estatisticas.'
                 : 'Comece a gerar flashcards com IA em segundos.'}
             </p>
           </div>
@@ -215,7 +221,7 @@ export function AuthPage() {
 
         <div
           role="tablist"
-          aria-label="Modo de autenticação"
+          aria-label="Modo de autenticacao"
           className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-[var(--color-border)] bg-white/[0.02] p-1"
         >
           <button
@@ -268,7 +274,7 @@ export function AuthPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
+            placeholder="********"
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             leftIcon={<Lock size={16} strokeWidth={1.5} />}
           />
@@ -290,17 +296,20 @@ export function AuthPage() {
             leftIcon={<LogIn size={18} strokeWidth={1.75} />}
             className="w-full"
           >
-            {loading
-              ? 'Processando…'
-              : mode === 'login'
-                ? 'Entrar'
-                : 'Criar conta'}
+            {loading ? 'Processando...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
           </Button>
 
-          {config?.googleOAuth && (
-            <p className="mt-2 text-center text-[11px] text-[var(--color-text-dim)]">
-              Login com Google disponível — integre o SDK para ativar o botão.
-            </p>
+          {mode === 'register' && config?.googleOAuth && config.googleClientId && (
+            <div className="mt-2 flex flex-col gap-3">
+              <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-dim)]">
+                <span className="h-px flex-1 bg-[var(--color-border)]" />
+                <span>ou continue com</span>
+                <span className="h-px flex-1 bg-[var(--color-border)]" />
+              </div>
+              <div className="flex justify-center">
+                <div ref={googleButtonRef} aria-label="Cadastrar com Google" />
+              </div>
+            </div>
           )}
         </form>
       </div>
