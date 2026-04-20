@@ -1,8 +1,16 @@
+import { DeckCard } from "./components/deckCard";
+
 function App() {
   return (
-    <h1 className="text-3xl font-bold text-blue-600">
-      Tailwind funcionando no meu Mac!
-    </h1>
-  )
+    <div className="min-h-screen bg-[#f8f8f8] p-8">
+      <DeckCard
+        title="Biologia Celular"
+        cardsCount={42}
+        masteredPercentage={90}
+        onClick={() => console.log("Deck clicado")}
+      />
+    </div>
+  );
 }
-export default App
+
+export default App;
