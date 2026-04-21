@@ -1,15 +1,15 @@
-import { DeckCard } from "./components/deckCard";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { UploadPage } from "./app/uploadPage";
+import { DecksPage } from "./app/decksPage";
 
 function App() {
   return (
-    <div className="min-h-screen bg-[#f8f8f8] p-8">
-      <DeckCard
-        title="Biologia Celular"
-        cardsCount={42}
-        masteredPercentage={90}
-        onClick={() => console.log("Deck clicado")}
-      />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<UploadPage />} />
+        <Route path="/decks" element={<DecksPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

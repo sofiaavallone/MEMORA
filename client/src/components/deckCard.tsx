@@ -17,25 +17,14 @@ export function DeckCard({
     <div className="scale-50">
         <button
         onClick={onClick}
-        className="
-            w-full max-w-[500px]
-            rounded-[28px]
-            border border-[#e1e7f0] border-[2px]
-            bg-white
-            p-10
-            text-left
-            shadow-[0_8px_20px_rgba(0,0,0,0.08)]
-            transition-all duration-200
-            hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(0,0,0,0.12)] hover:border-[#ebdae9]
-        "
-        >
+        className="w-full max-w-[500px] rounded-[28px] border border-[#e1e7f0] border-[2px] bg-white p-10 text-left shadow-[0_8px_20px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(0,0,0,0.12)] hover:border-[#ebdae9]">
         <div className="mb-8 flex items-start justify-between">
             <div className="flex h-12 w-12 items-center justify-center text-[#9b3f98]">
-            <FileText size={32} strokeWidth={2.2} />
+              <FileText size={32} strokeWidth={2.2} />
             </div>
 
             <span className="text-[20px] font-medium text-[#6b7a99]">
-            {cardsCount} cards
+              {cardsCount} cards
             </span>
         </div>
 
