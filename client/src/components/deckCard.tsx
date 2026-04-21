@@ -28,7 +28,7 @@ export function DeckCard({
             </span>
         </div>
 
-        <h2 className="mb-6 text-[28px] font-semibold leading-tight text-[#24172b]">
+        <h2 className="mb-6 text-[28px] font-heading font-semibold leading-tight text-[#24172b]">
             {title}
         </h2>
 
@@ -45,7 +45,7 @@ export function DeckCard({
             />
         </div>
 
-        <p className="text-[18px] font-medium text-[#6b7a99]">
+        <p className="text-[22px] font-medium text-[#6b7a99]">
             {masteredPercentage}% dominado
         </p>
         </button>

@@ -51,7 +51,7 @@ export function SideBar({
                 <Brain size={20} strokeWidth={2.4} />
             </div>
 
-            <span className="text-[21px] font-semibold tracking-[-0.02em] text-[#24172b]">
+            <span className="text-[21px] font-heading font-semibold tracking-[-0.02em] text-[#24172b]">
                 Memora
             </span>
         </div>
@@ -74,7 +74,7 @@ export function SideBar({
 
         <div className="mt-auto flex flex-col gap-4">
             <div className="w-full rounded-[13px] bg-[#eee7ef] p-4 text-left">
-                <h2 className="mb-0.5 text-[12px] font-medium text-[#24172b]">
+                <h2 className="mb-0.5 text-[12px] font-heading font-medium text-[#24172b]">
                     Revisão Diária
                 </h2>
 

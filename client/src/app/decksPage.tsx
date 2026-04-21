@@ -1,7 +1,13 @@
+import { useState } from "react";
 import { DeckCard } from "../components/deckCard";
 import { SideBar } from "../components/sideBar";
+import { LoginModal } from "../components/loginModal";
+import { RegisterModal } from "../components/registerModal";
 
 export function DecksPage() {
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-[#f8f8f8]">
       <div className="flex">
@@ -9,7 +15,7 @@ export function DecksPage() {
           reviewCardsCount={12}
           reviewProgressPercentage={70}
           activeItem="decks"
-          onLoginClick={() => console.log("Entrar clicado")}
+          onLoginClick={() => setIsLoginModalOpen(true)}
         />
 
         <main className="flex-1 p-8">
@@ -25,6 +31,24 @@ export function DecksPage() {
           />
         </main>
       </div>
+
+      <LoginModal 
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onCreateAccountClick={() => {
+          setIsLoginModalOpen(false);
+          setIsRegisterModalOpen(true);
+        }}
+      />
+
+      <RegisterModal
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        onLoginClick={() => {
+          setIsRegisterModalOpen(false);
+          setIsLoginModalOpen(true);
+        }}
+      />
     </div>
   );
 }
