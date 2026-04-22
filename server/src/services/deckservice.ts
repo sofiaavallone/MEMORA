@@ -1,9 +1,12 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
-// ✅ Instância única do Prisma (padrão Singleton para evitar múltiplas conexões)
-const prisma = new PrismaClient();
+import 'dotenv/config';
 
-// ✅ Tipo explícito para o retorno do Prisma (corrige o erro de 'any' implícito)
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
+
+// ✅ Interfaces declaradas FORA da classe (estavam incorretamente dentro dela)
 interface DeckComContagem {
   id: string;
   titulo: string;
@@ -12,12 +15,24 @@ interface DeckComContagem {
   _count: { flashcards: number };
 }
 
-// ✅ Tipo de retorno formatado
-interface DeckFormatado {
+export interface DeckFormatado {
   id: string;
   titulo: string;
   criadoEm: Date;
   quantidadeFlashcards: number;
+}
+
+export interface FlashcardFormatado {
+  id: string;
+  pergunta: string;
+  resposta: string;
+}
+
+export interface DeckDetalhadoFormatado {
+  id: string;
+  titulo: string;
+  criadoEm: Date;
+  flashcards: FlashcardFormatado[];
 }
 
 export class DeckService {
@@ -46,5 +61,35 @@ export class DeckService {
       criadoEm: deck.createdAt,
       quantidadeFlashcards: deck._count.flashcards,
     }));
+  }
+
+  /**
+   * Busca um deck específico pelo ID, trazendo todos os seus flashcards.
+   */
+  public async obterDeckComFlashcards(
+    deckId: string
+  ): Promise<DeckDetalhadoFormatado | null> {
+    const deck = await prisma.deck.findUnique({
+      where: { id: deckId },
+      include: {
+        flashcards: {
+          select: {
+            id: true,
+            pergunta: true,
+            resposta: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!deck) return null;
+
+    return {
+      id: deck.id,
+      titulo: deck.titulo,
+      criadoEm: deck.createdAt,
+      flashcards: deck.flashcards,
+    };
   }
 }

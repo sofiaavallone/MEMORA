@@ -4,6 +4,7 @@ import express from "express";
 import type { NextFunction, Request, Response } from "express";
 
 import { createFlashcardRoutes } from "./routes/flashcardRoutes.js";
+import deckRoutes from "./routes/deckroutes.js";
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api", flashcardRoutes);
+app.use("/api/decks", deckRoutes);
 
 app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
   if (error instanceof SyntaxError && "body" in error) {

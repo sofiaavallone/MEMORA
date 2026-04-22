@@ -6,4 +6,6 @@ const deckController = new DeckController();
 
 router.get('/user/:userId', (req, res) => deckController.listar(req, res));
 
+router.get('/:id', (req, res) => deckController.obterDetalhes(req, res));
+
 export default router;
