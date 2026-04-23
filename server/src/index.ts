@@ -7,6 +7,9 @@ import { env } from "./lib/env.js";
 import { createAuthRoutes } from "./routes/authRoutes.js";
 import { createDeckRoutes } from "./routes/deckRoutes.js";
 import { createFlashcardRoutes } from "./routes/flashcardRoutes.js";
+import deckRoutes from "./routes/deckroutes.js";
+
+dotenv.config();
 import { createStatsRoutes } from "./routes/statsRoutes.js";
 import { createStudySessionRoutes } from "./routes/studySessionRoutes.js";
 
@@ -33,6 +36,8 @@ app.get("/api/health", (_req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+app.use("/api", flashcardRoutes);
+app.use("/api/decks", deckRoutes);
 app.use("/api/auth", createAuthRoutes());
 app.use("/api/decks", createDeckRoutes());
 app.use("/api/flashcards", createFlashcardRoutes());
