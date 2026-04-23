@@ -1,8 +1,18 @@
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { UploadPage } from "./app/uploadPage";
+import { DecksPage } from "./app/decksPage";
+import { FlashcardPage } from "./app/flashcardPage";
+
 function App() {
   return (
-    <h1 className="text-3xl font-bold text-blue-600">
-      Tailwind funcionando no meu Mac!
-    </h1>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<UploadPage />} />
+        <Route path="/decks" element={<DecksPage />} />
+        <Route path="/flashcards" element={<FlashcardPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
-export default App
+
+export default App;

@@ -1,23 +1,52 @@
+import cookieParser from "cookie-parser";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 
+import { env } from "./lib/env.js";
+import { createAuthRoutes } from "./routes/authRoutes.js";
+import { createDeckRoutes } from "./routes/deckRoutes.js";
 import { createFlashcardRoutes } from "./routes/flashcardRoutes.js";
 import deckRoutes from "./routes/deckroutes.js";
 
 dotenv.config();
+import { createStatsRoutes } from "./routes/statsRoutes.js";
+import { createStudySessionRoutes } from "./routes/studySessionRoutes.js";
 
 const app = express();
-const port = Number(process.env.PORT) || 3001;
-const flashcardRoutes = createFlashcardRoutes();
+
+const allowedOrigins = env.corsOrigin.split(",").map((o) => o.trim()).filter(Boolean);
 
 app.disable("x-powered-by");
-app.use(cors());
-app.use(express.json());
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return cb(null, true);
+      }
+      return cb(new Error(`Origem não permitida: ${origin}`));
+    },
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: "1mb" }));
+app.use(cookieParser());
+
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
 app.use("/api", flashcardRoutes);
 app.use("/api/decks", deckRoutes);
+app.use("/api/auth", createAuthRoutes());
+app.use("/api/decks", createDeckRoutes());
+app.use("/api/flashcards", createFlashcardRoutes());
+app.use("/api/stats", createStatsRoutes());
+app.use("/api/sessions", createStudySessionRoutes());
+
+app.use((_req, res) => {
+  res.status(404).json({ error: "Rota não encontrada." });
+});
 
 app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
   if (error instanceof SyntaxError && "body" in error) {
@@ -32,6 +61,6 @@ app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
   return res.status(500).json({ error: "Erro interno do servidor." });
 });
 
-app.listen(port, () => {
-  console.log(`Servidor iniciado na porta ${port}.`);
+app.listen(env.port, () => {
+  console.log(`[MEMORA API] Servidor iniciado na porta ${env.port} (env=${env.nodeEnv}).`);
 });

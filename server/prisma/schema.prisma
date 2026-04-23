@@ -1,7 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Memora — Prisma schema
+// Users, decks, flashcards, study sessions.
 
 generator client {
   provider = "prisma-client-js"
@@ -12,35 +10,77 @@ datasource db {
   provider = "postgresql"
 }
 
+enum AuthProvider {
+  PASSWORD
+  GOOGLE
+}
+
 model User {
-  id            String  @id @default(cuid())
-  nome          String
-  email         String  @unique
-  passwordHash  String
-  decks         Deck[] // relação 1:N
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String?
+  provider      AuthProvider   @default(PASSWORD)
+  googleId      String?        @unique
+  avatarUrl     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  decks         Deck[]
+  studySessions StudySession[]
+
+  @@index([email])
 }
 
 model Deck {
-  id          String @id @default(cuid())
-  titulo      String // tópico definido pelo usuário
-  userId      String // FK
-  user        User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  flashcards  Flashcard[] // relação 1:N
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String         @id @default(cuid())
+  title      String
+  topic      String
+  color      String         @default("purple")
+  sourceName String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  flashcards Flashcard[]
+  sessions   StudySession[]
+
+  @@index([userId])
 }
 
 model Flashcard {
-  id          String @id @default(cuid())
-  pergunta    String
-  resposta    String
-  deckId      String // FK
-  deck        Deck @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  proxRevisao DateTime @default(now())
-  intervalo   Int @default(1)
-  acertos     Int @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  question     String
+  answer       String
+  mastered     Boolean  @default(false)
+  order        Int      @default(0)
+  nextReviewAt DateTime @default(now())
+  interval     Int      @default(1)
+  correctCount Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  deckId String
+  deck   Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  @@index([deckId])
+  @@index([deckId, nextReviewAt])
+}
+
+model StudySession {
+  id           String   @id @default(cuid())
+  startedAt    DateTime @default(now())
+  durationSec  Int      @default(0)
+  cardsStudied Int      @default(0)
+  cardsCorrect Int      @default(0)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deckId String
+  deck   Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([deckId])
+  @@index([startedAt])
 }
