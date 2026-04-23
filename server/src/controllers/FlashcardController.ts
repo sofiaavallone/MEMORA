@@ -1,107 +1,141 @@
 import type { Request, Response } from "express";
+import { z } from "zod";
 
-import {
-  GeminiServiceError,
-  FileProcessingTimeoutError,
-  PromptValidationError,
-} from "../errors/index.js";
-import { FlashcardService } from "../services/FlashcardService.js";
-import type { GenerateRequest, GenerateResponse } from "../types/index.js";
+import { prisma } from "../lib/prisma.js";
+import type { AuthedRequest } from "../middleware/authMiddleware.js";
 
-const REQUIRED_FIELDS_ERROR = "Os campos pdfUrl, topic e quantity são obrigatórios.";
-const INVALID_FIELDS_ERROR =
-  "Os campos informados são inválidos. Envie uma URL válida em pdfUrl e um quantity inteiro positivo.";
-const INTERNAL_SERVER_ERROR = "Erro ao gerar flashcards. Tente novamente mais tarde.";
+const reviewSchema = z.object({
+  result: z.enum(["correct", "incorrect"]),
+  durationSec: z.coerce.number().int().min(0).max(24 * 60 * 60).optional(),
+});
 
-type GenerateRequestBody = Partial<GenerateRequest> & Record<string, unknown>;
+function addDays(base: Date, days: number): Date {
+  return new Date(base.getTime() + days * 86_400_000);
+}
 
-interface ValidationResult {
-  data?: GenerateRequest;
-  error?: string;
+function serializeFlashcard(flashcard: {
+  id: string;
+  question: string;
+  answer: string;
+  mastered: boolean;
+  order: number;
+  nextReviewAt: Date;
+  interval: number;
+  correctCount: number;
+}) {
+  return {
+    id: flashcard.id,
+    question: flashcard.question,
+    answer: flashcard.answer,
+    mastered: flashcard.mastered,
+    order: flashcard.order,
+    nextReviewAt: flashcard.nextReviewAt.toISOString(),
+    interval: flashcard.interval,
+    correctCount: flashcard.correctCount,
+  };
 }
 
 export class FlashcardController {
-  constructor(private readonly flashcardService: FlashcardService) {}
-
-  generate = async (
-    req: Request<Record<string, never>, GenerateResponse | { error: string }, GenerateRequestBody>,
-    res: Response<GenerateResponse | { error: string }>
-  ): Promise<Response<GenerateResponse | { error: string }>> => {
-    const validation = this.validateRequestBody(req.body);
-
-    if (!validation.data) {
-      return res.status(400).json({ error: validation.error ?? REQUIRED_FIELDS_ERROR });
+  review = async (req: Request, res: Response): Promise<Response> => {
+    const { userId } = req as AuthedRequest;
+    const flashcardId = String(req.params.id ?? "");
+    if (!flashcardId) {
+      return res.status(400).json({ error: "ID do flashcard ausente." });
     }
 
-    try {
-      const { pdfUrl, topic, quantity } = validation.data;
-      const flashcards = await this.flashcardService.generate(pdfUrl, topic, quantity);
-
-      return res.status(200).json({ flashcards });
-    } catch (error) {
-      console.error("Erro no controller de flashcards:", error);
-
-      if (error instanceof PromptValidationError) {
-        return res.status(400).json({ error: error.message });
-      }
-
-      if (error instanceof FileProcessingTimeoutError) {
-        return res.status(504).json({ error: "O processamento do PDF excedeu o tempo limite." });
-      }
-
-      if (error instanceof GeminiServiceError) {
-        return res.status(502).json({ error: "Erro na comunicação com o serviço de IA." });
-      }
-
-      return res.status(500).json({ error: INTERNAL_SERVER_ERROR });
+    const parsed = reviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Dados invÃ¡lidos." });
     }
+
+    const { result, durationSec = 0 } = parsed.data;
+
+    const outcome = await prisma.$transaction(async (tx) => {
+      const flashcard = await tx.flashcard.findFirst({
+        where: {
+          id: flashcardId,
+          deck: { userId },
+        },
+        select: {
+          id: true,
+          question: true,
+          answer: true,
+          mastered: true,
+          order: true,
+          nextReviewAt: true,
+          interval: true,
+          correctCount: true,
+          deckId: true,
+        },
+      });
+
+      if (!flashcard) {
+        return null;
+      }
+
+      const reviewedAt = new Date();
+      const nextInterval = result === "correct" ? flashcard.interval + 1 : 1;
+      const nextCorrectCount = result === "correct" ? flashcard.correctCount + 1 : 0;
+      const nextReviewAt =
+        result === "correct" ? addDays(reviewedAt, nextInterval) : reviewedAt;
+      const mastered = nextCorrectCount >= 3;
+
+      const [updatedFlashcard, session] = await Promise.all([
+        tx.flashcard.update({
+          where: { id: flashcard.id },
+          data: {
+            mastered,
+            nextReviewAt,
+            interval: nextInterval,
+            correctCount: nextCorrectCount,
+          },
+          select: {
+            id: true,
+            question: true,
+            answer: true,
+            mastered: true,
+            order: true,
+            nextReviewAt: true,
+            interval: true,
+            correctCount: true,
+          },
+        }),
+        tx.studySession.create({
+          data: {
+            userId,
+            deckId: flashcard.deckId,
+            durationSec,
+            cardsStudied: 1,
+            cardsCorrect: result === "correct" ? 1 : 0,
+          },
+          select: {
+            id: true,
+            deckId: true,
+            startedAt: true,
+            durationSec: true,
+            cardsStudied: true,
+            cardsCorrect: true,
+          },
+        }),
+      ]);
+
+      return { flashcard: updatedFlashcard, session };
+    });
+
+    if (!outcome) {
+      return res.status(404).json({ error: "Flashcard nÃ£o encontrado." });
+    }
+
+    return res.status(200).json({
+      flashcard: serializeFlashcard(outcome.flashcard),
+      session: {
+        id: outcome.session.id,
+        deckId: outcome.session.deckId,
+        startedAt: outcome.session.startedAt.toISOString(),
+        durationSec: outcome.session.durationSec,
+        cardsStudied: outcome.session.cardsStudied,
+        cardsCorrect: outcome.session.cardsCorrect,
+      },
+    });
   };
-
-  private validateRequestBody(body: GenerateRequestBody | undefined): ValidationResult {
-    if (!body) {
-      return { error: REQUIRED_FIELDS_ERROR };
-    }
-
-    const pdfUrl = this.normalizeString(body.pdfUrl);
-    const topic = this.normalizeString(body.topic);
-    const quantity = body.quantity;
-
-    if (!pdfUrl || !topic || quantity === undefined || quantity === null) {
-      return { error: REQUIRED_FIELDS_ERROR };
-    }
-
-    if (!this.isValidUrl(pdfUrl) || !this.isPositiveInteger(quantity)) {
-      return { error: INVALID_FIELDS_ERROR };
-    }
-
-    return {
-      data: {
-        pdfUrl,
-        topic,
-        quantity
-      }
-    };
-  }
-
-  private normalizeString(value: unknown): string | null {
-    if (typeof value !== "string") {
-      return null;
-    }
-
-    const trimmedValue = value.trim();
-    return trimmedValue.length > 0 ? trimmedValue : null;
-  }
-
-  private isPositiveInteger(value: unknown): value is number {
-    return typeof value === "number" && Number.isInteger(value) && value > 0;
-  }
-
-  private isValidUrl(value: string): boolean {
-    try {
-      const url = new URL(value);
-      return url.protocol === "http:" || url.protocol === "https:";
-    } catch {
-      return false;
-    }
-  }
 }

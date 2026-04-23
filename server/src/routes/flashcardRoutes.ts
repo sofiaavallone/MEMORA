@@ -1,16 +1,14 @@
 import { Router } from "express";
 
 import { FlashcardController } from "../controllers/FlashcardController.js";
-import { FlashcardService } from "../services/FlashcardService.js";
+import { requireAuth } from "../middleware/authMiddleware.js";
 
-const createFlashcardRoutes = (): Router => {
-  const flashcardRoutes = Router();
-  const flashcardService = new FlashcardService();
-  const flashcardController = new FlashcardController(flashcardService);
+export const createFlashcardRoutes = (): Router => {
+  const router = Router();
+  const controller = new FlashcardController();
 
-  flashcardRoutes.post("/generate", flashcardController.generate);
+  router.use(requireAuth);
+  router.post("/:id/review", controller.review);
 
-  return flashcardRoutes;
+  return router;
 };
-
-export { createFlashcardRoutes };

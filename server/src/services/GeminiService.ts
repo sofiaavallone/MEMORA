@@ -8,7 +8,7 @@ import {
 import type { Flashcard } from "../types/index.js";
 
 const GEMINI_CONFIG = {
-  model: "gemini-2.5-flash",
+  model: "gemini-2.5-flash-lite",
   pollingIntervalMs: 3_000,
   maxPollingAttempts: 20,
   uploadDisplayName: "Material_Flashcards.pdf",
@@ -45,6 +45,33 @@ export class GeminiService {
     }
 
     this.ai = new GoogleGenAI({ apiKey });
+  }
+
+  public async generateFlashcardsFromPrompt(prompt: string): Promise<Flashcard[]> {
+    try {
+      console.log("[GeminiService] Gerando flashcards a partir de prompt (sem PDF)...");
+      const response = await this.ai.models.generateContent({
+        model: GEMINI_CONFIG.model,
+        contents: [createUserContent([prompt])],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: JSON_RESPONSE_SCHEMA,
+          temperature: 0.6,
+        },
+      });
+
+      const text = response.text;
+      if (!text) {
+        throw new GeminiServiceError("[GeminiService] A IA retornou uma resposta vazia.");
+      }
+      return this.parseJsonResponse(text);
+    } catch (error) {
+      if (error instanceof GeminiServiceError) throw error;
+      throw new GeminiServiceError(
+        "[GeminiService] Erro inesperado durante a geração de flashcards (modo prompt).",
+        error
+      );
+    }
   }
 
   public async generateFlashcards(pdfBlob: Blob, prompt: string): Promise<Flashcard[]> {
