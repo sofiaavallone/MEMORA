@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { UploadPage } from "./app/uploadPage";
 import { DecksPage } from "./app/decksPage";
 import { FlashcardPage } from "./app/flashcardPage";
+import { ProfilePage } from "./app/profilePage";
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
         <Route path="/" element={<UploadPage />} />
         <Route path="/decks" element={<DecksPage />} />
         <Route path="/flashcards" element={<FlashcardPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Routes>
     </BrowserRouter>
   );

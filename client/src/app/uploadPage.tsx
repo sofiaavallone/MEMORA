@@ -6,6 +6,18 @@ import { LoginModal } from "../components/loginModal";
 import { RegisterModal } from "../components/registerModal";
 import { DeckCard } from "../components/deckCard";
 
+type Flashcard = {
+  question: string;
+  answer: string;
+};
+
+type Deck = {
+  title: string;
+  cardsCount: number;
+  masteredPercentage: number;
+  flashcards: Flashcard[];
+};
+
 type FlashcardOption = 10 | 30 | 50;
 
 export function UploadPage() {
@@ -15,9 +27,74 @@ export function UploadPage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
+  const [user, setUser] = useState<{ name: string; email: string } | null>({
+    name: "Sofia",
+    email: "sas3@cin.ufpe.br"
+  });
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [topic, setTopic] = useState<string>("");
   const [cardsCount, setCardsCount] = useState<FlashcardOption | null>(null);
+
+  const decks: Deck[] = [
+    {
+      title: "Herança",
+      cardsCount: 50,
+      masteredPercentage: 35,
+      flashcards: [
+        {
+          question: "O que é herança em orientação a objetos?",
+          answer: "É o mecanismo que permite que uma classe herde atributos e métodos de outra.",
+        },
+        {
+          question: "Qual palavra-chave representa herança em Java?",
+          answer: "A palavra-chave é extends.",
+        },
+        {
+          question: "Uma subclasse pode sobrescrever métodos da superclasse?",
+          answer: "Sim, por meio de overriding.",
+        },
+      ],
+    },
+    {
+      title: "Ponteiros",
+      cardsCount: 10,
+      masteredPercentage: 92,
+      flashcards: [
+        {
+          question: "O que é um ponteiro?",
+          answer: "É uma variável que armazena o endereço de memória de outra variável.",
+        },
+        {
+          question: "Qual operador obtém o endereço de uma variável em C?",
+          answer: "O operador &.",
+        },
+        {
+          question: "Qual operador acessa o valor apontado por um ponteiro?",
+          answer: "O operador *.",
+        },
+      ],
+    },
+    {
+      title: "Memória Cache",
+      cardsCount: 30,
+      masteredPercentage: 68,
+      flashcards: [
+        {
+          question: "Qual a função da memória cache?",
+          answer: "Armazenar temporariamente dados de acesso frequente para acelerar o processamento.",
+        },
+        {
+          question: "A cache é mais rápida que a RAM?",
+          answer: "Sim, a memória cache é mais rápida que a RAM.",
+        },
+        {
+          question: "Onde a memória cache fica em relação ao processador?",
+          answer: "Ela fica muito próxima ou integrada ao processador.",
+        },
+      ],
+    },
+  ];
 
   const handleOpenFilePicker = (): void => {
     fileInputRef.current?.click();
@@ -64,6 +141,11 @@ export function UploadPage() {
           reviewProgressPercentage={35}
           activeItem="upload"
           onLoginClick={() => setIsLoginModalOpen(true)}
+          user={user}
+          onLogout={() => {
+            setUser(null);
+            navigate("/")
+          }}
         />
 
         <main className="flex-1 px-8 py-6">
@@ -77,7 +159,7 @@ export function UploadPage() {
             <input 
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.ppt,.pptx,.png,.jpg,.jped"
+              accept=".pdf,.ppt,.pptx,.png,.jpg,.jpeg"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -212,26 +294,22 @@ export function UploadPage() {
               </h2>
 
               <div className="mt-4 grid grid-cols-3 gap-4">
-                <DeckCard
-                  title="Classes Abstratas"
-                  cardsCount={50}
-                  masteredPercentage={35}
-                  onClick={() => console.log("Deck clicado")}
-                />
-
-                <DeckCard
-                  title="Herança e Polimorfismo"
-                  cardsCount={10}
-                  masteredPercentage={92}
-                  onClick={() => console.log("Deck clicado")}
-                />
-
-                <DeckCard
-                  title="Ponteiros"
-                  cardsCount={30}
-                  masteredPercentage={68}
-                  onClick={() => console.log("Deck clicado")}
-                />
+                {decks.map((deck) => (
+                  <DeckCard
+                    key={deck.title}
+                    title={deck.title}
+                    cardsCount={deck.cardsCount}
+                    masteredPercentage={deck.masteredPercentage}
+                    onClick={() =>
+                      navigate("/flashcards", {
+                        state: {
+                          deckTitle: deck.title,
+                          flashcards: deck.flashcards,
+                        },
+                      })
+                    }
+                  />
+                ))}
               </div>
             </section>
           </section>

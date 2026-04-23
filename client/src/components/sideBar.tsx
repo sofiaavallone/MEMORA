@@ -1,11 +1,19 @@
-import { Brain, Upload, Layers3, LogIn } from "lucide-react";
+import { Brain, Upload, Layers3, LogIn, User, LogOut, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+
+type UserData = {
+  name: string;
+  email: string;
+};
 
 type SideBarProps = {
   reviewCardsCount: number;
   reviewProgressPercentage: number;
-  activeItem?: "upload" | "decks";
+  activeItem?: "upload" | "decks" | "profile";
   onLoginClick?: () => void;
+  user?: UserData | null;
+  onLogout?: () => void;
 };
 
 type NavItemProps = {
@@ -41,8 +49,11 @@ export function SideBar({
   reviewProgressPercentage,
   activeItem = "upload",
   onLoginClick,
+  user,
+  onLogout,
 }: SideBarProps) {
     const navigate = useNavigate();
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
     return (
     <aside className="flex min-h-screen w-full max-w-[255px] flex-col border-r border-[#e8ebf0] bg-[#fcfcfc] px-3 py-6">
@@ -96,12 +107,76 @@ export function SideBar({
                 </div>
             </div>
 
-            <button
+            {user ? (
+              <div className="relative">
+                {isUserMenuOpen && (
+                  <div className="absolute bottom-[calc(100%+12px)] left-0 w-full rounded-[10px] border border-[#d9dfe8] bg-white px-2 py-1.5 shadow-[0px_8px_24px_rgba(15,23,42,0.12)]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        navigate("/profile");
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left transition-colors duration-200 ${
+                        activeItem === "profile"
+                          ? "bg-[#1DBA84] text-white"
+                          : "text-[#24172b] hover:bg-[#f3eef4]"
+                      }`}
+                    >
+                      <User size={16} strokeWidth={2} />
+                      <span className="text-[14px] font-light">Meu Perfil</span>
+                    </button>
+
+                    <div className="my-1 h-px bg-[#e8ebf0]" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onLogout?.();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-[#ff4d5e] transition-colors duration-200 hover:bg-red-50"
+                    >
+                      <LogOut size={16} strokeWidth={2} />
+                      <span className="text-[14px] font-light">Sair da conta</span>
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between rounded-[12px] px-3 py-2 text-[#24172b] transition-colors duration-200 hover:bg-[#f3eef4]"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eee7ef] text-[#9b4ca0]">
+                      <User size={16} strokeWidth={2.1} />
+                    </div>
+
+                    <div className="min-w-0 text-left">
+                      <p className="truncate text-[14px] font-normal text-[#24172b]">
+                        {user.name}
+                      </p>
+                    </div>
+                  </div>
+
+                  <ChevronDown 
+                    size={16}
+                    className={`text-[#6b7a99] transition-transform duration-200 ${
+                      isUserMenuOpen ? "" : "rotate-180"
+                    }`}
+                  />
+                </button>
+              </div>
+            ) : (
+              <button
                 onClick={onLoginClick}
-                className="flex items-center gap-3 px-3 py-1.5 text-[#6b7a99] transition-colors duration-200 hover:text-[#24172b]">
+                className="flex items-center gap-3 px-3 py-1.5 text-[#6b7a99] transition-colors duration-200 hover:text-[#24172b]"
+              >
                 <LogIn size={19} strokeWidth={2.2} />
                 <span className="text-[15px] font-normal">Entrar</span>
-            </button>
+              </button>
+            )}
         </div>
     </aside>
     );
