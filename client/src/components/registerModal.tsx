@@ -1,17 +1,49 @@
 import { X } from "lucide-react";
+import { useState } from "react";
+import { registerUser, type AuthUser } from "../services/authService";
 
 type RegisterModalProps = {
     isOpen: boolean;
     onClose: () => void;
     onLoginClick?: () => void;
+    onRegisterSuccess?: (user: AuthUser) => void;
   };
   
 export function RegisterModal({
     isOpen,
     onClose,
     onLoginClick,
+    onRegisterSuccess,
 }: RegisterModalProps) {
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+
+    const [error, setError] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+
     if (!isOpen) return null;
+
+    const handleSubmit: React.ComponentProps<"form">["onSubmit"] = async (event) => {
+        event.preventDefault();
+
+        try {
+            setIsLoading(true);
+            setError("");
+
+            const data = await registerUser({ name, email, password });
+
+            localStorage.setItem("memora_token", data.token);
+            localStorage.setItem("memora_user", JSON.stringify(data.user));
+
+            onRegisterSuccess?.(data.user);
+            onClose();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Erro ao criar conta.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4">
@@ -28,7 +60,7 @@ export function RegisterModal({
                     Criar conta
                 </h2>
 
-                <form className="flex flex-col gap-4">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <div className="flex flex-col gap-1.5">
                         <label className="text-[14px] font-heading font-medium text-[#24172b]">
                             Nome
@@ -37,6 +69,8 @@ export function RegisterModal({
                         <input
                             type="text"
                             placeholder="Seu nome"
+                            value={name}
+                            onChange={(event) => setName(event.target.value)}
                             className="h-[40px] rounded-[12px] border border-[#d9dde7] px-4 text-[14px] text-[#24172b] outline-none placeholder:text-[#7c89a3] focus:ring-2 focus:ring-[#9b4ca0] focus:ring-offset-2"
                         />
                     </div>
@@ -49,6 +83,8 @@ export function RegisterModal({
                         <input
                             type="email"
                             placeholder="seu@email.com"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
                             className="h-[40px] rounded-[12px] border border-[#d9dde7] px-4 text-[14px] text-[#24172b] outline-none placeholder:text-[#7c89a3] focus:ring-2 focus:ring-[#9b4ca0] focus:ring-offset-2"
                         />
                     </div>
@@ -61,15 +97,20 @@ export function RegisterModal({
                         <input
                             type="password"
                             placeholder="••••••••"
+                            value={password}
+                            onChange={(event) => setPassword(event.target.value)}
                             className="h-[40px] rounded-[12px] border border-[#d9dde7] px-4 text-[14px] text-[#24172b] outline-none placeholder:text-[#7c89a3] focus:ring-2 focus:ring-[#9b4ca0] focus:ring-offset-2"
                         />
                     </div>
 
+                    {error && <p className="text-[13px] text-red-500">{error}</p>}
+
                     <button
                         type="submit"
+                        disabled={isLoading}
                         className="mt-1 h-[40px] rounded-[12px] bg-[#9b4ca0] text-[14px] font-medium text-white transition-colors duration-200 hover:bg-[#b15bb4]"
                     >
-                        Criar conta
+                        {isLoading ? "Criando..." : "Criar conta"}
                     </button>
                 </form>
 
