@@ -3,21 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { SideBar } from "../components/sideBar";
 
-type UserData = {
-    name: string;
-    email: string;
-};
-
 export function ProfilePage() {
     const navigate = useNavigate();
 
-    const [user, setUser] = useState<UserData>({
-        name: "Sofia",
-        email: "sas3@cin.ufpe.br",
+    const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
+        const storedUser = localStorage.getItem("memora_user");
+        return storedUser ? JSON.parse(storedUser) : null;
     });
 
-    const [name, setName] = useState(user.name);
-    const [email, setEmail] = useState(user.email);
+    const [name, setName] = useState(user?.name ?? "");
+    const [email, setEmail] = useState(user?.email ?? "");
 
     const handleSubmit: React.ComponentProps<"form">["onSubmit"] = (event) => {
         event.preventDefault();
@@ -37,8 +32,13 @@ export function ProfilePage() {
                     reviewCardsCount={12}
                     reviewProgressPercentage={35}
                     activeItem="profile"
-                    user={{ name: user.name, email: user.email }}
-                    onLogout={() => navigate("/")}
+                    user={user ? { name: user.name, email: user.email } : null}
+                    onLogout={() => {
+                        localStorage.removeItem("memora_token");
+                        localStorage.removeItem("memora_user");
+                        setUser(null);
+                        navigate("/");
+                    }}
                 />
 
                 <main className="flex-1 px-8 py-10">

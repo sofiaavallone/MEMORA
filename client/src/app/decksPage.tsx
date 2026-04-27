@@ -25,6 +25,11 @@ export function DecksPage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
+  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
+    const storedUser = localStorage.getItem("memora_user");
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
+
   const decks: Deck[] = [
     {
       title: "Herança",
@@ -162,6 +167,13 @@ export function DecksPage() {
           reviewProgressPercentage={35}
           activeItem="decks"
           onLoginClick={() => setIsLoginModalOpen(true)}
+          user={user}
+          onLogout={() => {
+            localStorage.removeItem("memora_token");
+            localStorage.removeItem("memora_user");
+            setUser(null);
+            navigate("/");
+          }}
         />
 
         <main className="flex-1 px-10 py-8">

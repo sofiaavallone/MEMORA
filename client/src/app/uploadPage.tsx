@@ -27,9 +27,9 @@ export function UploadPage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
-  const [user, setUser] = useState<{ name: string; email: string } | null>({
-    name: "Sofia",
-    email: "sas3@cin.ufpe.br"
+  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
+    const storedUser = localStorage.getItem("memora_user");
+    return storedUser ? JSON.parse(storedUser) : null;
   });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -143,17 +143,18 @@ export function UploadPage() {
           onLoginClick={() => setIsLoginModalOpen(true)}
           user={user}
           onLogout={() => {
+            localStorage.removeItem("memora_token");
+            localStorage.removeItem("memora_user");
             setUser(null);
-            navigate("/")
+            navigate("/");
           }}
         />
 
         <main className="flex-1 px-8 py-6">
           <section className="mx-auto w-full max-w-[835px] mt-2">
             <h1 className="font-heading text-[30px] font-bold text-[#24172b]">
-              Olá, Fulano 👋
-            </h1> {/* Mudar para o nome do usuário */}
-
+              Olá, {user ? user.name : "visitante"} 👋
+            </h1> 
             <p className="mt-1 font-light text-[16px] text-[#6b7a99]">Envie seus materiais e gere flashcards com IA em segundos.</p>
 
             <input 
@@ -319,6 +320,7 @@ export function UploadPage() {
       <LoginModal 
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
+        onLoginSucess={(loggedUser) => setUser(loggedUser)}
         onCreateAccountClick={() => {
           setIsLoginModalOpen(false);
           setIsRegisterModalOpen(true);
@@ -327,7 +329,8 @@ export function UploadPage() {
 
       <RegisterModal 
         isOpen={isRegisterModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
+        onClose={() => setIsRegisterModalOpen(false)}
+        onRegisterSuccess={(createdUser) => setUser(createdUser)}
         onLoginClick={() => {
           setIsRegisterModalOpen(false);
           setIsLoginModalOpen(true);
