@@ -52,25 +52,36 @@ export class AuthController {
 
     const { name, email, password } = parsed.data;
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return res.status(409).json({ error: "Este email já está em uso." });
+    try{
+
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        return res.status(409).json({ error: "Este email já está em uso." });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 12);
+      const user = await prisma.user.create({
+        data: { name, email, passwordHash, provider: "PASSWORD" },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatarUrl: true,
+          createdAt: true,
+        },
+      });
+
+      const token = signJwt({ sub: user.id, email: user.email });
+      return res.status(201).json({ user: publicUser(user), token });
+
+    } catch (error) {
+
+      console.error("[AuthController.register] Erro:", error); 
+      return res.status(500).json({ error: "Erro interno do servidor." });
     }
+    
 
-    const passwordHash = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
-      data: { name, email, passwordHash, provider: "PASSWORD" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        avatarUrl: true,
-        createdAt: true,
-      },
-    });
-
-    const token = signJwt({ sub: user.id, email: user.email });
-    return res.status(201).json({ user: publicUser(user), token });
+    
   };
 
   login = async (req: Request, res: Response): Promise<Response> => {
@@ -78,20 +89,28 @@ export class AuthController {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." });
     }
-
     const { email, password } = parsed.data;
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.passwordHash) {
-      return res.status(401).json({ error: "Credenciais inválidas." });
-    }
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      return res.status(401).json({ error: "Credenciais inválidas." });
-    }
+    try{
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user || !user.passwordHash) {
+        return res.status(401).json({ error: "Credenciais inválidas." });
+      }
 
-    const token = signJwt({ sub: user.id, email: user.email });
-    return res.status(200).json({ user: publicUser(user), token });
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        return res.status(401).json({ error: "Credenciais inválidas." });
+      }
+
+      const token = signJwt({ sub: user.id, email: user.email });
+      return res.status(200).json({ user: publicUser(user), token });
+
+    } catch (error) {
+      console.error("[AuthController.login] Erro:", error);
+      return res.status(500).json({ error: "Erro interno do servidor." });
+
+    }
+    
   };
 
   google = async (req: Request, res: Response): Promise<Response> => {
