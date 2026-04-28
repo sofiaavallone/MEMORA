@@ -1,58 +1,226 @@
-import type { Request, Response } from 'express';
-import { DeckService } from '../services/deckservice.js';
+import type { Request, Response } from "express";
+import { z } from "zod";
 
-const deckService = new DeckService();
+import {
+  FileProcessingTimeoutError,
+  GeminiServiceError,
+  PromptValidationError,
+} from "../errors/index.js";
+import { FlashcardService } from "../services/FlashcardService.js";
+import { prisma } from "../lib/prisma.js";
+import type { AuthedRequest } from "../middleware/authMiddleware.js";
+
+const DECK_COLORS = ["purple", "indigo", "pink", "cyan"] as const;
+type DeckColor = (typeof DECK_COLORS)[number];
+
+const generateSchema = z.object({
+  topic: z.string().trim().min(3, "Informe um tópico com ao menos 3 caracteres."),
+  quantity: z.coerce.number().int().min(5).max(50),
+  pdfUrl: z.string().trim().url("Forneça uma URL válida de PDF.").optional(),
+  sourceName: z.string().trim().max(255).optional(),
+});
+
+function pickColor(): DeckColor {
+  const idx = Math.floor(Math.random() * DECK_COLORS.length);
+  return DECK_COLORS[idx] ?? "purple";
+}
+
+function serializeFlashcard(flashcard: {
+  id: string;
+  question: string;
+  answer: string;
+  mastered: boolean;
+  order: number;
+  nextReviewAt: Date;
+  interval: number;
+  correctCount: number;
+}) {
+  return {
+    id: flashcard.id,
+    question: flashcard.question,
+    answer: flashcard.answer,
+    mastered: flashcard.mastered,
+    order: flashcard.order,
+    nextReviewAt: flashcard.nextReviewAt.toISOString(),
+    interval: flashcard.interval,
+    correctCount: flashcard.correctCount,
+  };
+}
+
+function serializeDeck(deck: {
+  id: string;
+  title: string;
+  topic: string;
+  color: string;
+  sourceName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  flashcards?: {
+    id: string;
+    question: string;
+    answer: string;
+    mastered: boolean;
+    order: number;
+    nextReviewAt: Date;
+    interval: number;
+    correctCount: number;
+  }[];
+  _count?: { flashcards: number; sessions: number };
+}) {
+  const totalCards = deck._count?.flashcards ?? deck.flashcards?.length ?? 0;
+  return {
+    id: deck.id,
+    title: deck.title,
+    topic: deck.topic,
+    color: deck.color,
+    sourceName: deck.sourceName,
+    cardCount: totalCards,
+    createdAt: deck.createdAt.toISOString(),
+    updatedAt: deck.updatedAt.toISOString(),
+    flashcards: deck.flashcards?.map(serializeFlashcard),
+  };
+}
 
 export class DeckController {
-  /**
-   * Lista todos os decks de um usuário específico.
-   * GET /users/:userId/decks
-   */
-  public async listar(req: Request, res: Response): Promise<void> {
-    const userId = Array.isArray(req.params['userId'])
-      ? req.params['userId'][0]
-      : req.params['userId'];
+  constructor(private readonly flashcardService: FlashcardService) {}
 
-    if (!userId) {
-      res.status(400).json({ erro: 'ID do usuário não fornecido.' });
-      return;
+  list = async (req: Request, res: Response): Promise<Response> => {
+    const { userId } = req as AuthedRequest;
+    const decks = await prisma.deck.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+      include: {
+        _count: { select: { flashcards: true, sessions: true } },
+      },
+    });
+
+    const ids = decks.map((d) => d.id);
+    const sessions = ids.length
+      ? await prisma.studySession.groupBy({
+          by: ["deckId"],
+          where: { deckId: { in: ids } },
+          _sum: { cardsStudied: true, cardsCorrect: true },
+        })
+      : [];
+    const sessionMap = new Map(sessions.map((s) => [s.deckId, s]));
+
+    return res.status(200).json({
+      decks: decks.map((d) => {
+        const agg = sessionMap.get(d.id);
+        const studied = agg?._sum.cardsStudied ?? 0;
+        const correct = agg?._sum.cardsCorrect ?? 0;
+        return {
+          ...serializeDeck(d),
+          studiedCount: studied,
+          accuracy: studied > 0 ? correct / studied : 0,
+        };
+      }),
+    });
+  };
+
+  get = async (req: Request, res: Response): Promise<Response> => {
+    const { userId } = req as AuthedRequest;
+    const id = String(req.params.id ?? "");
+    if (!id) return res.status(400).json({ error: "ID do deck ausente." });
+
+    const deck = await prisma.deck.findFirst({
+      where: { id, userId },
+      include: {
+        flashcards: { orderBy: { order: "asc" } },
+        _count: { select: { flashcards: true, sessions: true } },
+      },
+    });
+
+    if (!deck) {
+      return res.status(404).json({ error: "Deck não encontrado." });
     }
 
+    const agg = await prisma.studySession.aggregate({
+      where: { deckId: deck.id },
+      _sum: { cardsStudied: true, cardsCorrect: true, durationSec: true },
+    });
+    const studied = agg._sum.cardsStudied ?? 0;
+    const correct = agg._sum.cardsCorrect ?? 0;
+
+    return res.status(200).json({
+      deck: {
+        ...serializeDeck(deck),
+        studiedCount: studied,
+        accuracy: studied > 0 ? correct / studied : 0,
+        totalDurationSec: agg._sum.durationSec ?? 0,
+      },
+    });
+  };
+
+  remove = async (req: Request, res: Response): Promise<Response> => {
+    const { userId } = req as AuthedRequest;
+    const id = String(req.params.id ?? "");
+    if (!id) return res.status(400).json({ error: "ID do deck ausente." });
+
+    const deck = await prisma.deck.findFirst({ where: { id, userId }, select: { id: true } });
+    if (!deck) {
+      return res.status(404).json({ error: "Deck não encontrado." });
+    }
+
+    await prisma.deck.delete({ where: { id: deck.id } });
+    return res.status(204).send();
+  };
+
+  generate = async (req: Request, res: Response): Promise<Response> => {
+    const { userId } = req as AuthedRequest;
+    const parsed = generateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." });
+    }
+
+    const { topic, quantity, pdfUrl, sourceName } = parsed.data;
+
     try {
-      const decks = await deckService.listarDecksDoUsuario(userId);
-      res.status(200).json(decks);
+      const flashcards = await this.flashcardService.generate(
+        pdfUrl ? { topic, quantity, pdfUrl } : { topic, quantity }
+      );
+
+      const deck = await prisma.deck.create({
+        data: {
+          userId,
+          title: topic,
+          topic,
+          color: pickColor(),
+          sourceName: sourceName ?? null,
+          flashcards: {
+            create: flashcards.map((f, idx) => ({
+              question: f.pergunta,
+              answer: f.resposta,
+              order: idx,
+            })),
+          },
+        },
+        include: {
+          flashcards: { orderBy: { order: "asc" } },
+          _count: { select: { flashcards: true, sessions: true } },
+        },
+      });
+
+      return res.status(201).json({
+        deck: {
+          ...serializeDeck(deck),
+          studiedCount: 0,
+          accuracy: 0,
+        },
+      });
     } catch (error) {
-      console.error('[DeckController] Erro ao listar decks:', error);
-      res.status(500).json({ erro: 'Falha interna no servidor.' });
-    }
-  }
+      console.error("[DeckController.generate]", error);
 
-  /**
-   * Busca um deck específico com todos os seus flashcards.
-   * GET /decks/:id
-   */
-  public async obterDetalhes(req: Request, res: Response): Promise<void> {
-    const deckId = Array.isArray(req.params['id'])
-      ? req.params['id'][0]
-      : req.params['id'];
-
-    if (!deckId) {
-      res.status(400).json({ erro: 'ID do deck não fornecido.' });
-      return;
-    }
-
-    try {
-      const deck = await deckService.obterDeckComFlashcards(deckId);
-
-      if (!deck) {
-        res.status(404).json({ erro: 'Deck não encontrado.' });
-        return;
+      if (error instanceof PromptValidationError) {
+        return res.status(400).json({ error: error.message });
       }
-
-      res.status(200).json(deck);
-    } catch (error) {
-      console.error('[DeckController] Erro ao obter detalhes do deck:', error);
-      res.status(500).json({ erro: 'Falha interna no servidor.' });
+      if (error instanceof FileProcessingTimeoutError) {
+        return res.status(504).json({ error: "O processamento do conteúdo excedeu o tempo limite." });
+      }
+      if (error instanceof GeminiServiceError) {
+        return res.status(502).json({ error: "Falha na comunicação com o serviço de IA." });
+      }
+      return res.status(500).json({ error: "Erro ao gerar flashcards. Tente novamente." });
     }
-  }
+  };
 }
