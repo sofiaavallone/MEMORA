@@ -13,6 +13,40 @@ function addDays(base: Date, days: number): Date {
   return new Date(base.getTime() + days * 86_400_000);
 }
 
+/**
+ * Calcula o próximo intervalo usando o algoritmo SM-2 simplificado.
+ *
+ * Intervalos para acertos consecutivos:
+ *   1º acerto → 1 dia
+ *   2º acerto → 6 dias
+ *   3º+ acerto → intervalo_atual × 2.5 (arredondado)
+ *
+ * Em caso de erro, reseta para 1 dia e zera o contador de acertos.
+ */
+function calcularProximoIntervalo(
+  intervaloAtual: number,
+  contagemAcertos: number,
+  resultado: "correct" | "incorrect"
+): { proximoIntervalo: number; proximaContagemAcertos: number } {
+  if (resultado === "incorrect") {
+    return { proximoIntervalo: 1, proximaContagemAcertos: 0 };
+  }
+
+  let proximoIntervalo: number;
+  if (contagemAcertos === 0) {
+    proximoIntervalo = 1;       
+  } else if (contagemAcertos === 1) {
+    proximoIntervalo = 6;       
+  } else {
+    proximoIntervalo = Math.round(intervaloAtual * 2.5);
+  }
+
+  return {
+    proximoIntervalo,
+    proximaContagemAcertos: contagemAcertos + 1,
+  };
+}
+
 function serializeFlashcard(flashcard: {
   id: string;
   question: string;
@@ -36,6 +70,10 @@ function serializeFlashcard(flashcard: {
 }
 
 export class FlashcardController {
+  /**
+   * Registra o resultado de uma revisão e atualiza o agendamento do card.
+   * POST /api/flashcards/:id/review
+   */
   review = async (req: Request, res: Response): Promise<Response> => {
     const { userId } = req as AuthedRequest;
     const flashcardId = String(req.params.id ?? "");
@@ -45,17 +83,14 @@ export class FlashcardController {
 
     const parsed = reviewSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Dados invÃ¡lidos." });
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." });
     }
 
     const { result, durationSec = 0 } = parsed.data;
 
     const outcome = await prisma.$transaction(async (tx) => {
       const flashcard = await tx.flashcard.findFirst({
-        where: {
-          id: flashcardId,
-          deck: { userId },
-        },
+        where: { id: flashcardId, deck: { userId } },
         select: {
           id: true,
           question: true,
@@ -69,25 +104,30 @@ export class FlashcardController {
         },
       });
 
-      if (!flashcard) {
-        return null;
-      }
+      if (!flashcard) return null;
 
-      const reviewedAt = new Date();
-      const nextInterval = result === "correct" ? flashcard.interval + 1 : 1;
-      const nextCorrectCount = result === "correct" ? flashcard.correctCount + 1 : 0;
-      const nextReviewAt =
-        result === "correct" ? addDays(reviewedAt, nextInterval) : reviewedAt;
-      const mastered = nextCorrectCount >= 3;
+      const { proximoIntervalo, proximaContagemAcertos } = calcularProximoIntervalo(
+        flashcard.interval,
+        flashcard.correctCount,
+        result
+      );
 
-      const [updatedFlashcard, session] = await Promise.all([
+      const agora = new Date();
+      const proximaRevisao =
+        result === "correct"
+          ? addDays(agora, proximoIntervalo)
+          : agora;
+
+      const dominado = proximaContagemAcertos >= 5;
+
+      const [flashcardAtualizado, sessao] = await Promise.all([
         tx.flashcard.update({
           where: { id: flashcard.id },
           data: {
-            mastered,
-            nextReviewAt,
-            interval: nextInterval,
-            correctCount: nextCorrectCount,
+            mastered: dominado,
+            nextReviewAt: proximaRevisao,
+            interval: proximoIntervalo,
+            correctCount: proximaContagemAcertos,
           },
           select: {
             id: true,
@@ -119,23 +159,54 @@ export class FlashcardController {
         }),
       ]);
 
-      return { flashcard: updatedFlashcard, session };
+      return { flashcard: flashcardAtualizado, sessao };
     });
 
     if (!outcome) {
-      return res.status(404).json({ error: "Flashcard nÃ£o encontrado." });
+      return res.status(404).json({ error: "Flashcard não encontrado." });
     }
 
     return res.status(200).json({
       flashcard: serializeFlashcard(outcome.flashcard),
       session: {
-        id: outcome.session.id,
-        deckId: outcome.session.deckId,
-        startedAt: outcome.session.startedAt.toISOString(),
-        durationSec: outcome.session.durationSec,
-        cardsStudied: outcome.session.cardsStudied,
-        cardsCorrect: outcome.session.cardsCorrect,
+        id: outcome.sessao.id,
+        deckId: outcome.sessao.deckId,
+        startedAt: outcome.sessao.startedAt.toISOString(),
+        durationSec: outcome.sessao.durationSec,
+        cardsStudied: outcome.sessao.cardsStudied,
+        cardsCorrect: outcome.sessao.cardsCorrect,
       },
+    });
+  };
+
+  /**
+   * Retorna os flashcards com revisão pendente para hoje.
+   * GET /api/flashcards/due?deckId=<opcional>
+   */
+  due = async (req: Request, res: Response): Promise<Response> => {
+    const { userId } = req as AuthedRequest;
+    const deckId = typeof req.query.deckId === "string" ? req.query.deckId : undefined;
+
+    const flashcards = await prisma.flashcard.findMany({
+      where: {
+        deck: { userId },
+        nextReviewAt: { lte: new Date() },
+        ...(deckId ? { deckId } : {}),
+      },
+      include: {
+        deck: { select: { id: true, title: true } },
+      },
+      orderBy: { nextReviewAt: "asc" },
+      take: 100,
+    });
+
+    return res.status(200).json({
+      flashcards: flashcards.map((f) => ({
+        ...serializeFlashcard(f),
+        deckId: f.deck.id,
+        deckTitle: f.deck.title,
+      })),
+      count: flashcards.length,
     });
   };
 }
