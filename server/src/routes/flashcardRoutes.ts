@@ -8,6 +8,9 @@ export const createFlashcardRoutes = (): Router => {
   const controller = new FlashcardController();
 
   router.use(requireAuth);
+
+  router.get("/due", controller.due);
+
   router.post("/:id/review", controller.review);
 
   return router;

@@ -36,7 +36,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", createAuthRoutes());
-app.use("/api/decks", createDeckRoutes);
+app.use("/api/decks", createDeckRoutes());
 app.use("/api/flashcards", createFlashcardRoutes());
 app.use("/api/stats", createStatsRoutes());
 app.use("/api/sessions", createStudySessionRoutes());
