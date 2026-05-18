@@ -31,6 +31,12 @@ export function UploadPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
+  // Erros de validação por campo
+  const [errors, setErrors] = useState({
+    topic: "",
+    cardsCount: "",
+  });
+
   // Decks recentes
   const [recentDecks, setRecentDecks] = useState<DeckAPI[]>([]);
   const [loadingDecks, setLoadingDecks] = useState(() => {
@@ -64,12 +70,23 @@ export function UploadPage() {
     setTopic("");
     setCardsCount(null);
     setGenerateError(null);
+    setErrors({ topic: "", cardsCount: "" });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit: React.ComponentProps<"form">["onSubmit"] = async (event) => {
     event.preventDefault();
-    if (!topic.trim() || !cardsCount) return;
+
+    // Valida cada campo e exibe mensagem de erro individual
+    const newErrors = {
+      topic: !topic.trim() ? "Preencha o tópico do material." : "",
+      cardsCount: cardsCount === null ? "Selecione a quantidade de flashcards." : "",
+    };
+
+    setErrors(newErrors);
+
+    // Se houver qualquer erro, interrompe o envio
+    if (Object.values(newErrors).some((e) => e !== "")) return;
 
     // Verifica se está logado
     if (!localStorage.getItem("memora_token")) {
@@ -103,7 +120,7 @@ export function UploadPage() {
     }
   };
 
-  const isGenerateDisabled = !topic.trim() || cardsCount === null || isGenerating;
+  const isGenerateDisabled = isGenerating;
 
   return (
     <div className="min-h-screen bg-[#f8f8f8]">
@@ -200,13 +217,26 @@ export function UploadPage() {
                     id="topic"
                     type="text"
                     value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
+                    onChange={(e) => {
+                      setTopic(e.target.value);
+                      // Limpa o erro ao começar a digitar
+                      if (errors.topic) setErrors((prev) => ({ ...prev, topic: "" }));
+                    }}
                     placeholder="Ex: Mitose e Meiose, Direitos Fundamentais, Farmacocinética..."
-                    className="h-[50px] w-full rounded-[14px] border border-[#d9dde7] px-4 text-[15px] text-[#24172b] bg-[#f8f9fb] outline-none placeholder:text-[#7c89a3] focus:border-[#9b4ca0] focus:border-2"
+                    className={`h-[50px] w-full rounded-[14px] border px-4 text-[15px] text-[#24172b] bg-[#f8f9fb] outline-none placeholder:text-[#7c89a3] focus:border-2 ${
+                      errors.topic
+                        ? "border-[#ff4d5f] focus:border-[#ff4d5f]"
+                        : "border-[#d9dde7] focus:border-[#9b4ca0]"
+                    }`}
                   />
-                  <p className="mt-2 text-[12px] text-[#6b7a99]">
-                    Especifique o tópico para gerar conteúdo mais focado e relevante.
-                  </p>
+                  {/* Mensagem de erro do tópico */}
+                  {errors.topic ? (
+                    <p className="mt-1 text-[12px] text-[#ff4d5f]">{errors.topic}</p>
+                  ) : (
+                    <p className="mt-2 text-[12px] text-[#6b7a99]">
+                      Especifique o tópico para gerar conteúdo mais focado e relevante.
+                    </p>
+                  )}
                 </div>
 
                 {/* Quantidade */}
@@ -222,10 +252,16 @@ export function UploadPage() {
                       <button
                         key={option}
                         type="button"
-                        onClick={() => setCardsCount(option)}
+                        onClick={() => {
+                          setCardsCount(option);
+                          // Limpa o erro ao selecionar
+                          if (errors.cardsCount) setErrors((prev) => ({ ...prev, cardsCount: "" }));
+                        }}
                         className={`h-[42px] rounded-[12px] border text-[15px] font-medium transition-colors duration-200 ${
                           cardsCount === option
                             ? "border-[#9b4ca0] bg-[#f3ebf4] text-[#9b4ca0]"
+                            : errors.cardsCount
+                            ? "border-[#ff4d5f] bg-[#f8f9fb] text-[#6b7a99] hover:border-[#ff4d5f]"
                             : "border-[#d9dde7] bg-[#f8f9fb] text-[#6b7a99] hover:border-[#cbb8d0]"
                         }`}
                       >
@@ -233,6 +269,10 @@ export function UploadPage() {
                       </button>
                     ))}
                   </div>
+                  {/* Mensagem de erro da quantidade */}
+                  {errors.cardsCount && (
+                    <p className="mt-2 text-[12px] text-[#ff4d5f]">{errors.cardsCount}</p>
+                  )}
                 </div>
 
                 {/* Erro de geração */}
