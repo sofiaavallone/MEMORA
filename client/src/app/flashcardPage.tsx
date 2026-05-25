@@ -6,6 +6,7 @@ import { LoginModal } from "../components/loginModal";
 import { RegisterModal } from "../components/registerModal";
 import { fetchDeck, reviewFlashcard, type FlashcardAPI } from "../services/deckService";
 import { useDueCards } from "../hooks/useDueCards";
+import { useAuthStore } from "../store/useAuthStore";
 
 type AnswerStatus = "correct" | "wrong" | null;
 
@@ -13,10 +14,7 @@ export function FlashcardPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { totalDue } = useDueCards();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
-    const stored = localStorage.getItem("memora_user");
-    return stored ? JSON.parse(stored) : null;
-  });
+  const { user } = useAuthStore();
 
   const routeState = location.state as
     | { deckId?: string; deckTitle?: string }
@@ -146,13 +144,6 @@ export function FlashcardPage() {
           reviewProgressPercentage={totalDue === 0 ? 100 : 0}
           activeItem="decks"
           onLoginClick={() => setIsLoginModalOpen(true)}
-          user={user}
-          onLogout={() => {
-            localStorage.removeItem("memora_token");
-            localStorage.removeItem("memora_user");
-            setUser(null);
-            navigate("/");
-          }}
         />
 
         <main className="flex-1 px-10 py-8">

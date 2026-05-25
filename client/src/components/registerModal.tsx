@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { useState } from "react";
-import { registerUser, type AuthUser } from "../services/authService";
+import { useAuthStore } from "../store/useAuthStore";
 
 type RegisterModalProps = {
   isOpen: boolean;

@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, useEffect, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight, BookOpenText, FileText, Loader2,
@@ -8,8 +8,9 @@ import { SideBar } from "../components/sideBar";
 import { LoginModal } from "../components/loginModal";
 import { RegisterModal } from "../components/registerModal";
 import { DeckCard } from "../components/deckCard";
-import { generateDeck, fetchDecks, type DeckAPI } from "../services/deckService";
 import { useDueCards } from "../hooks/useDueCards";
+import { useAuthStore } from "../store/useAuthStore";
+import { useDeckStore } from "../store/useDeckStore";
 
 type FlashcardOption = 10 | 30 | 50;
 
@@ -58,6 +59,8 @@ export function UploadPage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
+  const { user } = useAuthStore();
+  const { decks, isGenerating, error: generateError, loadDecks, createDeck } = useDeckStore();
   const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
     const stored = localStorage.getItem("memora_user");
     return stored ? JSON.parse(stored) : null;
@@ -77,6 +80,14 @@ export function UploadPage() {
     cardsCount: "",
   });
 
+  // Carrega decks recentes ao montar (se logado)
+  useEffect(() => {
+    if (!user) return;
+    loadDecks();
+  }, [user]);
+
+  const recentDecks = decks.slice(0, 3);
+  const loadingDecks = !user ? false : decks.length === 0;
   // Decks recentes
   const [recentDecks, setRecentDecks] = useState<DeckAPI[]>([]);
   const [loadingDecks, setLoadingDecks] = useState(() => !!localStorage.getItem("memora_token"));
@@ -106,7 +117,6 @@ export function UploadPage() {
 
     setFileError(null);
     setSelectedFile(file);
-    setGenerateError(null);
   };
 
   const handleRemoveFile = () => {
@@ -115,7 +125,6 @@ export function UploadPage() {
     setTopic("");
     setTopicError(null);
     setCardsCount(null);
-    setGenerateError(null);
     setErrors({ topic: "", cardsCount: "" });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -135,7 +144,6 @@ export function UploadPage() {
     if (tError) { setTopicError(tError); return; }
     if (!cardsCount) return; // botão já fica desabilitado, só por segurança
 
-    // Valida cada campo e exibe mensagem de erro individual
     const newErrors = {
       topic: !topic.trim() ? "Preencha o tópico do material." : "",
       cardsCount: cardsCount === null ? "Selecione a quantidade de flashcards." : "",
@@ -143,7 +151,6 @@ export function UploadPage() {
 
     setErrors(newErrors);
 
-    // Se houver qualquer erro, interrompe o envio
     if (Object.values(newErrors).some((e) => e !== "")) return;
 
     if (!localStorage.getItem("memora_token")) {
@@ -154,21 +161,17 @@ export function UploadPage() {
     setIsGenerating(true);
 
     try {
-      const deck = await generateDeck({
+      const deck = await createDeck({
         topic: topic.trim(),
-        quantity: cardsCount,
+        quantity: cardsCount!,
         sourceName: selectedFile?.name,
       });
 
       navigate("/flashcards", {
         state: { deckId: deck.id, deckTitle: deck.title },
       });
-    } catch (error) {
-      setGenerateError(
-        error instanceof Error ? error.message : "Erro ao gerar flashcards. Tente novamente."
-      );
-    } finally {
-      setIsGenerating(false);
+    } catch {
+      // erro já está na store (generateError)
     }
   };
 
@@ -313,7 +316,6 @@ export function UploadPage() {
                   </div>
                     onChange={(e) => {
                       setTopic(e.target.value);
-                      // Limpa o erro ao começar a digitar
                       if (errors.topic) setErrors((prev) => ({ ...prev, topic: "" }));
                     }}
                     placeholder="Ex: Mitose e Meiose, Direitos Fundamentais, Farmacocinética..."
@@ -323,7 +325,6 @@ export function UploadPage() {
                         : "border-[#d9dde7] focus:border-[#9b4ca0]"
                     }`}
                   />
-                  {/* Mensagem de erro do tópico */}
                   {errors.topic ? (
                     <p className="mt-1 text-[12px] text-[#ff4d5f]">{errors.topic}</p>
                   ) : (
@@ -348,7 +349,6 @@ export function UploadPage() {
                         type="button"
                         onClick={() => {
                           setCardsCount(option);
-                          // Limpa o erro ao selecionar
                           if (errors.cardsCount) setErrors((prev) => ({ ...prev, cardsCount: "" }));
                         }}
                         className={`h-[42px] rounded-[12px] border text-[15px] font-medium transition-colors duration-200 ${
