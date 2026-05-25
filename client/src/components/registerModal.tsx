@@ -1,12 +1,12 @@
 import { X } from "lucide-react";
 import { useState } from "react";
-import { registerUser, type AuthUser } from "../services/authService";
+import { useAuthStore } from "../store/useAuthStore";
 
 type RegisterModalProps = {
     isOpen: boolean;
     onClose: () => void;
     onLoginClick?: () => void;
-    onRegisterSuccess?: (user: AuthUser) => void;
+    onRegisterSuccess?: () => void;
   };
   
 export function RegisterModal({
@@ -19,29 +19,19 @@ export function RegisterModal({
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
-    const [error, setError] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    const { register, isLoading, error, clearError } = useAuthStore();
 
     if (!isOpen) return null;
 
     const handleSubmit: React.ComponentProps<"form">["onSubmit"] = async (event) => {
         event.preventDefault();
+        clearError();
 
-        try {
-            setIsLoading(true);
-            setError("");
+        await register(name, email, password);
 
-            const data = await registerUser({ name, email, password });
-
-            localStorage.setItem("memora_token", data.token);
-            localStorage.setItem("memora_user", JSON.stringify(data.user));
-
-            onRegisterSuccess?.(data.user);
+        if (!useAuthStore.getState().error) {
+            onRegisterSuccess?.();
             onClose();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Erro ao criar conta.");
-        } finally {
-            setIsLoading(false);
         }
     };
 

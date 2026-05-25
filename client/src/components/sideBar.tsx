@@ -1,19 +1,13 @@
 import { Brain, Upload, Layers3, LogIn, User, LogOut, ChevronDown, CalendarClock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-
-type UserData = {
-  name: string;
-  email: string;
-};
+import { useAuthStore } from "../store/useAuthStore";
 
 type SideBarProps = {
   reviewCardsCount: number;
   reviewProgressPercentage: number;
   activeItem?: "upload" | "decks" | "review" | "profile";
   onLoginClick?: () => void;
-  user?: UserData | null;
-  onLogout?: () => void;
 };
 
 type NavItemProps = {
@@ -50,11 +44,10 @@ export function SideBar({
   reviewProgressPercentage,
   activeItem = "upload",
   onLoginClick,
-  user,
-  onLogout,
 }: SideBarProps) {
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const { user, logout } = useAuthStore();
 
   return (
     <aside className="flex min-h-screen w-full max-w-[255px] flex-col border-r border-[#e8ebf0] bg-[#fcfcfc] px-3 py-6">
@@ -145,7 +138,7 @@ export function SideBar({
                   type="button"
                   onClick={() => {
                     setIsUserMenuOpen(false);
-                    onLogout?.();
+                    logout();
                   }}
                   className="flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-[#ff4d5e] transition-colors hover:bg-red-50"
                 >

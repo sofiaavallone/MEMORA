@@ -13,6 +13,7 @@ import { LoginModal } from "../components/loginModal";
 import { RegisterModal } from "../components/registerModal";
 import { reviewFlashcard, type FlashcardAPI } from "../services/deckService";
 import { useDueCards, type DeckDue } from "../hooks/useDueCards";
+import { useAuthStore } from "../store/useAuthStore";
 
 type AnswerStatus = "correct" | "wrong" | null;
 
@@ -368,11 +369,8 @@ export function ReviewPage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [state, setState] = useState<ReviewState>({ screen: "select" });
-  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
-    const stored = localStorage.getItem("memora_user");
-    return stored ? JSON.parse(stored) : null;
-  });
 
+  const { user } = useAuthStore();
   const { totalDue, byDeck, loading, error, refresh } = useDueCards();
 
   if (loading) {
@@ -394,13 +392,6 @@ export function ReviewPage() {
           reviewProgressPercentage={totalDue === 0 ? 100 : 0}
           activeItem="review"
           onLoginClick={() => setIsLoginModalOpen(true)}
-          user={user}                    
-          onLogout={() => {            
-          localStorage.removeItem("memora_token");
-          localStorage.removeItem("memora_user");
-          setUser(null);
-          navigate("/");
-        }}
         />
 
         <main className="flex flex-1 items-start justify-center px-10 py-12">
@@ -439,7 +430,7 @@ export function ReviewPage() {
               deck={state.deck}
               onBack={() => setState({ screen: "select" })}
               onFinish={(correct, wrong) => {
-                refresh(); // atualiza a contagem do badge
+                refresh();
                 setState({
                   screen: "summary",
                   correct,

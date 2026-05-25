@@ -1,12 +1,13 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, useEffect, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, BookOpenText, FileText, Loader2, Sparkles, Upload, X } from "lucide-react";
 import { SideBar } from "../components/sideBar";
 import { LoginModal } from "../components/loginModal";
 import { RegisterModal } from "../components/registerModal";
 import { DeckCard } from "../components/deckCard";
-import { generateDeck, fetchDecks, type DeckAPI } from "../services/deckService";
 import { useDueCards } from "../hooks/useDueCards";
+import { useAuthStore } from "../store/useAuthStore";
+import { useDeckStore } from "../store/useDeckStore";
 
 type FlashcardOption = 10 | 30 | 50;
 
@@ -18,18 +19,12 @@ export function UploadPage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
-  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
-    const storedUser = localStorage.getItem("memora_user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const { user } = useAuthStore();
+  const { decks, isGenerating, error: generateError, loadDecks, createDeck } = useDeckStore();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [topic, setTopic] = useState<string>("");
   const [cardsCount, setCardsCount] = useState<FlashcardOption | null>(null);
-
-  // Estado de geração
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Erros de validação por campo
   const [errors, setErrors] = useState({
@@ -37,22 +32,14 @@ export function UploadPage() {
     cardsCount: "",
   });
 
-  // Decks recentes
-  const [recentDecks, setRecentDecks] = useState<DeckAPI[]>([]);
-  const [loadingDecks, setLoadingDecks] = useState(() => {
-    return !!localStorage.getItem("memora_token");
-  });
-
   // Carrega decks recentes ao montar (se logado)
-  useState(() => {
-    const token = localStorage.getItem("memora_token");
-    if (!token) return;
+  useEffect(() => {
+    if (!user) return;
+    loadDecks();
+  }, [user]);
 
-    fetchDecks()
-      .then((decks) => setRecentDecks(decks.slice(0, 3)))
-      .catch(() => {}) // silencioso — seção secundária
-      .finally(() => setLoadingDecks(false));
-  });
+  const recentDecks = decks.slice(0, 3);
+  const loadingDecks = !user ? false : decks.length === 0;
 
   const handleOpenFilePicker = (): void => {
     fileInputRef.current?.click();
@@ -62,14 +49,12 @@ export function UploadPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     setSelectedFile(file);
-    setGenerateError(null);
   };
 
   const handleRemoveFile = (): void => {
     setSelectedFile(null);
     setTopic("");
     setCardsCount(null);
-    setGenerateError(null);
     setErrors({ topic: "", cardsCount: "" });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -77,7 +62,6 @@ export function UploadPage() {
   const handleSubmit: React.ComponentProps<"form">["onSubmit"] = async (event) => {
     event.preventDefault();
 
-    // Valida cada campo e exibe mensagem de erro individual
     const newErrors = {
       topic: !topic.trim() ? "Preencha o tópico do material." : "",
       cardsCount: cardsCount === null ? "Selecione a quantidade de flashcards." : "",
@@ -85,38 +69,28 @@ export function UploadPage() {
 
     setErrors(newErrors);
 
-    // Se houver qualquer erro, interrompe o envio
     if (Object.values(newErrors).some((e) => e !== "")) return;
 
-    // Verifica se está logado
-    if (!localStorage.getItem("memora_token")) {
+    if (!user) {
       setIsLoginModalOpen(true);
       return;
     }
 
-    setIsGenerating(true);
-    setGenerateError(null);
-
     try {
-      const deck = await generateDeck({
+      const deck = await createDeck({
         topic: topic.trim(),
-        quantity: cardsCount,
+        quantity: cardsCount!,
         sourceName: selectedFile?.name,
       });
 
-      // Redireciona para a página de flashcards do deck gerado
       navigate("/flashcards", {
         state: {
           deckId: deck.id,
           deckTitle: deck.title,
         },
       });
-    } catch (error) {
-      setGenerateError(
-        error instanceof Error ? error.message : "Erro ao gerar flashcards. Tente novamente."
-      );
-    } finally {
-      setIsGenerating(false);
+    } catch {
+      // erro já está na store (generateError)
     }
   };
 
@@ -130,13 +104,6 @@ export function UploadPage() {
           reviewProgressPercentage={totalDue === 0 ? 100 : 0}
           activeItem="upload"
           onLoginClick={() => setIsLoginModalOpen(true)}
-          user={user}
-          onLogout={() => {
-            localStorage.removeItem("memora_token");
-            localStorage.removeItem("memora_user");
-            setUser(null);
-            navigate("/");
-          }}
         />
 
         <main className="flex-1 px-8 py-6">
@@ -219,7 +186,6 @@ export function UploadPage() {
                     value={topic}
                     onChange={(e) => {
                       setTopic(e.target.value);
-                      // Limpa o erro ao começar a digitar
                       if (errors.topic) setErrors((prev) => ({ ...prev, topic: "" }));
                     }}
                     placeholder="Ex: Mitose e Meiose, Direitos Fundamentais, Farmacocinética..."
@@ -229,7 +195,6 @@ export function UploadPage() {
                         : "border-[#d9dde7] focus:border-[#9b4ca0]"
                     }`}
                   />
-                  {/* Mensagem de erro do tópico */}
                   {errors.topic ? (
                     <p className="mt-1 text-[12px] text-[#ff4d5f]">{errors.topic}</p>
                   ) : (
@@ -254,7 +219,6 @@ export function UploadPage() {
                         type="button"
                         onClick={() => {
                           setCardsCount(option);
-                          // Limpa o erro ao selecionar
                           if (errors.cardsCount) setErrors((prev) => ({ ...prev, cardsCount: "" }));
                         }}
                         className={`h-[42px] rounded-[12px] border text-[15px] font-medium transition-colors duration-200 ${
@@ -269,7 +233,6 @@ export function UploadPage() {
                       </button>
                     ))}
                   </div>
-                  {/* Mensagem de erro da quantidade */}
                   {errors.cardsCount && (
                     <p className="mt-2 text-[12px] text-[#ff4d5f]">{errors.cardsCount}</p>
                   )}
@@ -352,7 +315,6 @@ export function UploadPage() {
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        onLoginSucess={(loggedUser) => setUser(loggedUser)}
         onCreateAccountClick={() => {
           setIsLoginModalOpen(false);
           setIsRegisterModalOpen(true);
@@ -362,7 +324,6 @@ export function UploadPage() {
       <RegisterModal
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
-        onRegisterSuccess={(createdUser) => setUser(createdUser)}
         onLoginClick={() => {
           setIsRegisterModalOpen(false);
           setIsLoginModalOpen(true);

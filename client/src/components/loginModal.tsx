@@ -1,12 +1,12 @@
 import { X } from "lucide-react";
 import { useState } from "react";
-import { loginUser, type AuthUser } from "../services/authService";
+import { useAuthStore } from "../store/useAuthStore";
 
 type LoginModalProps = {
     isOpen: boolean;
     onClose: () => void;
     onCreateAccountClick?: () => void;
-    onLoginSucess?: (user: AuthUser) => void;
+    onLoginSucess?: () => void;
 };
   
 export function LoginModal({
@@ -18,29 +18,19 @@ export function LoginModal({
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
-    const [error, setError] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    const { login, isLoading, error, clearError } = useAuthStore();
 
     if (!isOpen) return null;
 
     const handleSubmit: React.ComponentProps<"form">["onSubmit"] = async (event) => {
         event.preventDefault();
+        clearError();
 
-        try {
-            setIsLoading(true);
-            setError("");
+        await login(email, password);
 
-            const data = await loginUser ({ email, password });
-
-            localStorage.setItem("memora_token", data.token);
-            localStorage.setItem("memora_user", JSON.stringify(data.user));
-
-            onLoginSucess?.(data.user);
+        if (!useAuthStore.getState().error) {
+            onLoginSucess?.();
             onClose();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Erro ao fazer login.");
-        } finally {
-            setIsLoading(false);
         }
     };
 

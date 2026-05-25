@@ -2,43 +2,30 @@ import { ArrowLeft, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { SideBar } from "../components/sideBar";
+import { useAuthStore } from "../store/useAuthStore";
+import { useDueCards } from "../hooks/useDueCards";
 
 export function ProfilePage() {
     const navigate = useNavigate();
 
-    const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
-        const storedUser = localStorage.getItem("memora_user");
-        return storedUser ? JSON.parse(storedUser) : null;
-    });
+    const { user } = useAuthStore();
+    const { totalDue } = useDueCards();
 
     const [name, setName] = useState(user?.name ?? "");
     const [email, setEmail] = useState(user?.email ?? "");
 
     const handleSubmit: React.ComponentProps<"form">["onSubmit"] = (event) => {
         event.preventDefault();
-
-        setUser({
-            name,
-            email,
-        });
-
         alert("Alterações salvas com sucesso!");
     };
 
     return (
         <div className="min-h-screen bg-[#f8f8f8]">
             <div className="flex">
-                <SideBar 
-                    reviewCardsCount={12}
-                    reviewProgressPercentage={35}
+                <SideBar
+                    reviewCardsCount={totalDue}
+                    reviewProgressPercentage={totalDue === 0 ? 100 : 0}
                     activeItem="profile"
-                    user={user ? { name: user.name, email: user.email } : null}
-                    onLogout={() => {
-                        localStorage.removeItem("memora_token");
-                        localStorage.removeItem("memora_user");
-                        setUser(null);
-                        navigate("/");
-                    }}
                 />
 
                 <main className="flex-1 px-8 py-10">
@@ -83,7 +70,7 @@ export function ProfilePage() {
                                 <label className="mb-2 block text-[14px] font-heading font-normal text-[#24172b]">
                                     Email
                                 </label>
-                                <input 
+                                <input
                                     type="email"
                                     value={email}
                                     onChange={(event) => setEmail(event.target.value)}

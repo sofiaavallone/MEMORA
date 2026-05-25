@@ -5,8 +5,9 @@ import { DeckCard } from "../components/deckCard";
 import { SideBar } from "../components/sideBar";
 import { LoginModal } from "../components/loginModal";
 import { RegisterModal } from "../components/registerModal";
-import { fetchDecks, type DeckAPI } from "../services/deckService";
 import { useDueCards } from "../hooks/useDueCards";
+import { useAuthStore } from "../store/useAuthStore";
+import { useDeckStore } from "../store/useDeckStore";
 
 export function DecksPage() {
   const navigate = useNavigate();
@@ -14,26 +15,15 @@ export function DecksPage() {
   const [search, setSearch] = useState("");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
-  const [decks, setDecks] = useState<DeckAPI[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const { totalDue } = useDueCards();
-
-  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
-    const storedUser = localStorage.getItem("memora_user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const { user } = useAuthStore();
+  const { decks, isLoading: loading, error, loadDecks } = useDeckStore();
 
   useEffect(() => {
-    const token = localStorage.getItem("memora_token");
-    if (!token) { setLoading(false); return; }
-
-    fetchDecks()
-      .then(setDecks)
-      .catch(() => setError("Não foi possível carregar os decks."))
-      .finally(() => setLoading(false));
-  }, []);
+    if (!user) return;
+    loadDecks();
+  }, [user]);
 
   const filteredDecks = useMemo(
     () => decks.filter((d) => d.title.toLowerCase().includes(search.toLowerCase().trim())),
@@ -50,13 +40,6 @@ export function DecksPage() {
           reviewProgressPercentage={totalDue === 0 ? 100 : 0}
           activeItem="decks"
           onLoginClick={() => setIsLoginModalOpen(true)}
-          user={user}
-          onLogout={() => {
-            localStorage.removeItem("memora_token");
-            localStorage.removeItem("memora_user");
-            setUser(null);
-            navigate("/");
-          }}
         />
 
         <main className="flex-1 px-10 py-8">
