@@ -14,10 +14,22 @@ const DECK_COLORS = ["purple", "indigo", "pink", "cyan"] as const;
 type DeckColor = (typeof DECK_COLORS)[number];
 
 const generateSchema = z.object({
-  topic: z.string().trim().min(3, "Informe um tópico com ao menos 3 caracteres."),
-  quantity: z.coerce.number().int().min(5).max(50),
+  topic: z
+    .string()
+    .trim()
+    .min(3, "Informe um tópico com ao menos 3 caracteres.")
+    .max(200, "O tópico deve ter no máximo 200 caracteres."),
+  quantity: z.coerce
+  .number("Quantidade deve ser um número.")
+  .int("Quantidade deve ser um número inteiro.")
+  .min(5, "Mínimo de 5 flashcards.")
+  .max(50, "Máximo de 50 flashcards."),
   pdfUrl: z.string().trim().url("Forneça uma URL válida de PDF.").optional(),
-  sourceName: z.string().trim().max(255).optional(),
+  sourceName: z
+    .string()
+    .trim()
+    .max(255, "Nome do arquivo deve ter no máximo 255 caracteres.")
+    .optional(),
 });
 
 function pickColor(): DeckColor {
@@ -86,36 +98,42 @@ export class DeckController {
 
   list = async (req: Request, res: Response): Promise<Response> => {
     const { userId } = req as AuthedRequest;
-    const decks = await prisma.deck.findMany({
-      where: { userId },
-      orderBy: { updatedAt: "desc" },
-      include: {
-        _count: { select: { flashcards: true, sessions: true } },
-      },
-    });
 
-    const ids = decks.map((d) => d.id);
-    const sessions = ids.length
-      ? await prisma.studySession.groupBy({
-          by: ["deckId"],
-          where: { deckId: { in: ids } },
-          _sum: { cardsStudied: true, cardsCorrect: true },
-        })
-      : [];
-    const sessionMap = new Map(sessions.map((s) => [s.deckId, s]));
+    try {
+      const decks = await prisma.deck.findMany({
+        where: { userId },
+        orderBy: { updatedAt: "desc" },
+        include: {
+          _count: { select: { flashcards: true, sessions: true } },
+        },
+      });
 
-    return res.status(200).json({
-      decks: decks.map((d) => {
-        const agg = sessionMap.get(d.id);
-        const studied = agg?._sum.cardsStudied ?? 0;
-        const correct = agg?._sum.cardsCorrect ?? 0;
-        return {
-          ...serializeDeck(d),
-          studiedCount: studied,
-          accuracy: studied > 0 ? correct / studied : 0,
-        };
-      }),
-    });
+      const ids = decks.map((d) => d.id);
+      const sessions = ids.length
+        ? await prisma.studySession.groupBy({
+            by: ["deckId"],
+            where: { deckId: { in: ids } },
+            _sum: { cardsStudied: true, cardsCorrect: true },
+          })
+        : [];
+      const sessionMap = new Map(sessions.map((s) => [s.deckId, s]));
+
+      return res.status(200).json({
+        decks: decks.map((d) => {
+          const agg = sessionMap.get(d.id);
+          const studied = agg?._sum.cardsStudied ?? 0;
+          const correct = agg?._sum.cardsCorrect ?? 0;
+          return {
+            ...serializeDeck(d),
+            studiedCount: studied,
+            accuracy: studied > 0 ? correct / studied : 0,
+          };
+        }),
+      });
+    } catch (error) {
+      console.error("[DeckController.list]", error);
+      return res.status(500).json({ error: "Erro ao buscar decks." });
+    }
   };
 
   get = async (req: Request, res: Response): Promise<Response> => {
@@ -123,33 +141,38 @@ export class DeckController {
     const id = String(req.params.id ?? "");
     if (!id) return res.status(400).json({ error: "ID do deck ausente." });
 
-    const deck = await prisma.deck.findFirst({
-      where: { id, userId },
-      include: {
-        flashcards: { orderBy: { order: "asc" } },
-        _count: { select: { flashcards: true, sessions: true } },
-      },
-    });
+    try {
+      const deck = await prisma.deck.findFirst({
+        where: { id, userId },
+        include: {
+          flashcards: { orderBy: { order: "asc" } },
+          _count: { select: { flashcards: true, sessions: true } },
+        },
+      });
 
-    if (!deck) {
-      return res.status(404).json({ error: "Deck não encontrado." });
+      if (!deck) {
+        return res.status(404).json({ error: "Deck não encontrado." });
+      }
+
+      const agg = await prisma.studySession.aggregate({
+        where: { deckId: deck.id },
+        _sum: { cardsStudied: true, cardsCorrect: true, durationSec: true },
+      });
+      const studied = agg._sum.cardsStudied ?? 0;
+      const correct = agg._sum.cardsCorrect ?? 0;
+
+      return res.status(200).json({
+        deck: {
+          ...serializeDeck(deck),
+          studiedCount: studied,
+          accuracy: studied > 0 ? correct / studied : 0,
+          totalDurationSec: agg._sum.durationSec ?? 0,
+        },
+      });
+    } catch (error) {
+      console.error("[DeckController.get]", error);
+      return res.status(500).json({ error: "Erro ao buscar deck." });
     }
-
-    const agg = await prisma.studySession.aggregate({
-      where: { deckId: deck.id },
-      _sum: { cardsStudied: true, cardsCorrect: true, durationSec: true },
-    });
-    const studied = agg._sum.cardsStudied ?? 0;
-    const correct = agg._sum.cardsCorrect ?? 0;
-
-    return res.status(200).json({
-      deck: {
-        ...serializeDeck(deck),
-        studiedCount: studied,
-        accuracy: studied > 0 ? correct / studied : 0,
-        totalDurationSec: agg._sum.durationSec ?? 0,
-      },
-    });
   };
 
   remove = async (req: Request, res: Response): Promise<Response> => {
@@ -157,20 +180,35 @@ export class DeckController {
     const id = String(req.params.id ?? "");
     if (!id) return res.status(400).json({ error: "ID do deck ausente." });
 
-    const deck = await prisma.deck.findFirst({ where: { id, userId }, select: { id: true } });
-    if (!deck) {
-      return res.status(404).json({ error: "Deck não encontrado." });
-    }
+    try {
+      const deck = await prisma.deck.findFirst({
+        where: { id, userId },
+        select: { id: true },
+      });
 
-    await prisma.deck.delete({ where: { id: deck.id } });
-    return res.status(204).send();
+      if (!deck) {
+        return res.status(404).json({ error: "Deck não encontrado." });
+      }
+
+      await prisma.deck.delete({ where: { id: deck.id } });
+      return res.status(204).send();
+    } catch (error) {
+      console.error("[DeckController.remove]", error);
+      return res.status(500).json({ error: "Erro ao remover deck." });
+    }
   };
 
   generate = async (req: Request, res: Response): Promise<Response> => {
     const { userId } = req as AuthedRequest;
+
     const parsed = generateSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." });
+      // Retorna todos os erros de validação, não apenas o primeiro
+      const erros = parsed.error.issues.map((i) => i.message);
+      return res.status(400).json({
+        error: erros[0] ?? "Dados inválidos.",
+        erros,
+      });
     }
 
     const { topic, quantity, pdfUrl, sourceName } = parsed.data;
@@ -179,6 +217,12 @@ export class DeckController {
       const flashcards = await this.flashcardService.generate(
         pdfUrl ? { topic, quantity, pdfUrl } : { topic, quantity }
       );
+
+      if (!flashcards || flashcards.length === 0) {
+        return res.status(422).json({
+          error: "A IA não conseguiu gerar flashcards para este tópico. Tente ser mais específico.",
+        });
+      }
 
       const deck = await prisma.deck.create({
         data: {
@@ -215,11 +259,16 @@ export class DeckController {
         return res.status(400).json({ error: error.message });
       }
       if (error instanceof FileProcessingTimeoutError) {
-        return res.status(504).json({ error: "O processamento do conteúdo excedeu o tempo limite." });
+        return res.status(504).json({
+          error: "O processamento do conteúdo excedeu o tempo limite. Tente novamente.",
+        });
       }
       if (error instanceof GeminiServiceError) {
-        return res.status(502).json({ error: "Falha na comunicação com o serviço de IA." });
+        return res.status(502).json({
+          error: "Falha na comunicação com o serviço de IA. Tente novamente em instantes.",
+        });
       }
+
       return res.status(500).json({ error: "Erro ao gerar flashcards. Tente novamente." });
     }
   };
