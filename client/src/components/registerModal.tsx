@@ -6,7 +6,7 @@ type RegisterModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onLoginClick?: () => void;
-  onRegisterSuccess?: (user: AuthUser) => void;
+  onRegisterSuccess?: () => void;
 };
 
 type FieldErrors = {
@@ -74,8 +74,8 @@ export function RegisterModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [apiError, setApiError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+
+  const { register, isLoading, error, clearError } = useAuthStore();
 
   if (!isOpen) return null;
 
@@ -83,7 +83,7 @@ export function RegisterModal({
 
   const handleSubmit: React.ComponentProps<"form">["onSubmit"] = async (event) => {
     event.preventDefault();
-    setApiError("");
+    clearError();
 
     // Validação local antes de chamar a API
     const errors = validate(name, email, password);
@@ -93,17 +93,11 @@ export function RegisterModal({
     }
     setFieldErrors({});
 
-    try {
-      setIsLoading(true);
-      const data = await registerUser({ name, email, password });
-      localStorage.setItem("memora_token", data.token);
-      localStorage.setItem("memora_user", JSON.stringify(data.user));
-      onRegisterSuccess?.(data.user);
+    await register(name, email, password);
+
+    if (!useAuthStore.getState().error) {
+      onRegisterSuccess?.();
       onClose();
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Erro ao criar conta.");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -203,9 +197,9 @@ export function RegisterModal({
           </div>
 
           {/* Erro da API */}
-          {apiError && (
+          {error && (
             <p className="rounded-[8px] bg-red-50 px-3 py-2 text-[13px] text-red-500">
-              {apiError}
+              {error}
             </p>
           )}
 

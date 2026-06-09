@@ -13,7 +13,6 @@ import { LoginModal } from "../components/loginModal";
 import { RegisterModal } from "../components/registerModal";
 import { reviewFlashcard, type FlashcardAPI } from "../services/deckService";
 import { useDueCards, type DeckDue } from "../hooks/useDueCards";
-import { useAuthStore } from "../store/useAuthStore";
 
 type AnswerStatus = "correct" | "wrong" | null;
 
@@ -370,7 +369,6 @@ export function ReviewPage() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [state, setState] = useState<ReviewState>({ screen: "select" });
 
-  const { user } = useAuthStore();
   const { totalDue, byDeck, loading, error, refresh } = useDueCards();
 
   if (loading) {

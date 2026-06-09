@@ -60,19 +60,13 @@ export function UploadPage() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
   const { user } = useAuthStore();
-  const { decks, isGenerating, error: generateError, loadDecks, createDeck } = useDeckStore();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
-    const stored = localStorage.getItem("memora_user");
-    return stored ? JSON.parse(stored) : null;
-  });
+  const { decks, isGenerating, isLoading: loadingDecks, error: generateError, loadDecks, createDeck } = useDeckStore();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
   const [topicError, setTopicError] = useState<string | null>(null);
   const [cardsCount, setCardsCount] = useState<FlashcardOption | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Erros de validação por campo
   const [errors, setErrors] = useState({
@@ -84,22 +78,9 @@ export function UploadPage() {
   useEffect(() => {
     if (!user) return;
     loadDecks();
-  }, [user]);
+  }, [user, loadDecks]);
 
   const recentDecks = decks.slice(0, 3);
-  const loadingDecks = !user ? false : decks.length === 0;
-  // Decks recentes
-  const [recentDecks, setRecentDecks] = useState<DeckAPI[]>([]);
-  const [loadingDecks, setLoadingDecks] = useState(() => !!localStorage.getItem("memora_token"));
-
-  useState(() => {
-    const token = localStorage.getItem("memora_token");
-    if (!token) return;
-    fetchDecks()
-      .then((decks) => setRecentDecks(decks.slice(0, 3)))
-      .catch(() => {})
-      .finally(() => setLoadingDecks(false));
-  });
 
   const handleOpenFilePicker = () => fileInputRef.current?.click();
 
@@ -137,7 +118,6 @@ export function UploadPage() {
 
   const handleSubmit: React.ComponentProps<"form">["onSubmit"] = async (event) => {
     event.preventDefault();
-    setGenerateError(null);
 
     // Validação local antes de chamar a API
     const tError = validateTopic(topic);
@@ -158,8 +138,6 @@ export function UploadPage() {
       return;
     }
 
-    setIsGenerating(true);
-
     try {
       const deck = await createDeck({
         topic: topic.trim(),
@@ -177,7 +155,6 @@ export function UploadPage() {
 
   const isGenerateDisabled = !topic.trim() || cardsCount === null || isGenerating;
   const topicLength = topic.trim().length;
-  const isGenerateDisabled = isGenerating;
 
   return (
     <div className="min-h-screen bg-[#f8f8f8]">
@@ -187,12 +164,6 @@ export function UploadPage() {
           reviewProgressPercentage={totalDue === 0 ? 100 : 0}
           activeItem="upload"
           onLoginClick={() => setIsLoginModalOpen(true)}
-          user={user}
-          onLogout={() => {
-            localStorage.removeItem("memora_token");
-            localStorage.removeItem("memora_user");
-            setUser(null);
-          }}
         />
 
         <main className="flex-1 px-8 py-6">
@@ -314,24 +285,6 @@ export function UploadPage() {
                       {topicLength}/{MAX_TOPIC_LENGTH}
                     </p>
                   </div>
-                    onChange={(e) => {
-                      setTopic(e.target.value);
-                      if (errors.topic) setErrors((prev) => ({ ...prev, topic: "" }));
-                    }}
-                    placeholder="Ex: Mitose e Meiose, Direitos Fundamentais, Farmacocinética..."
-                    className={`h-[50px] w-full rounded-[14px] border px-4 text-[15px] text-[#24172b] bg-[#f8f9fb] outline-none placeholder:text-[#7c89a3] focus:border-2 ${
-                      errors.topic
-                        ? "border-[#ff4d5f] focus:border-[#ff4d5f]"
-                        : "border-[#d9dde7] focus:border-[#9b4ca0]"
-                    }`}
-                  />
-                  {errors.topic ? (
-                    <p className="mt-1 text-[12px] text-[#ff4d5f]">{errors.topic}</p>
-                  ) : (
-                    <p className="mt-2 text-[12px] text-[#6b7a99]">
-                      Especifique o tópico para gerar conteúdo mais focado e relevante.
-                    </p>
-                  )}
                 </div>
 
                 {/* Quantidade */}
@@ -367,6 +320,7 @@ export function UploadPage() {
                     <p className="mt-2 text-[12px] text-[#aab0bf]">
                       Selecione a quantidade de flashcards.
                     </p>
+                  )}
                   {/* Mensagem de erro da quantidade */}
                   {errors.cardsCount && (
                     <p className="mt-2 text-[12px] text-[#ff4d5f]">{errors.cardsCount}</p>
@@ -445,13 +399,11 @@ export function UploadPage() {
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        onLoginSucess={(u) => setUser(u)}
         onCreateAccountClick={() => { setIsLoginModalOpen(false); setIsRegisterModalOpen(true); }}
       />
       <RegisterModal
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
-        onRegisterSuccess={(u) => setUser(u)}
         onLoginClick={() => { setIsRegisterModalOpen(false); setIsLoginModalOpen(true); }}
       />
     </div>

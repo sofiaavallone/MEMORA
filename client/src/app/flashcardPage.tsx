@@ -6,7 +6,6 @@ import { LoginModal } from "../components/loginModal";
 import { RegisterModal } from "../components/registerModal";
 import { fetchDeck, reviewFlashcard, type FlashcardAPI } from "../services/deckService";
 import { useDueCards } from "../hooks/useDueCards";
-import { useAuthStore } from "../store/useAuthStore";
 
 type AnswerStatus = "correct" | "wrong" | null;
 
@@ -14,7 +13,6 @@ export function FlashcardPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { totalDue } = useDueCards();
-  const { user } = useAuthStore();
 
   const routeState = location.state as
     | { deckId?: string; deckTitle?: string }
