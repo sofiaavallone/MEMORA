@@ -15,6 +15,7 @@
 7. [Pull Requests e Code Review](#7-pull-requests-e-code-review)
 8. [Padrões de Código](#8-padrões-de-código)
 9. [Teste da API (Script Standalone)](#9-teste-da-api-script-standalone)
+10. [Build e Deploy de Produção](#10-build-e-deploy-de-produção)
 
 ---
 
@@ -364,6 +365,104 @@ Este script:
 - Exibe o resultado no terminal
 
 > **Obs:** Este script usa o pacote `@google/genai` (diferente do servidor principal que usa `@google/generative-ai`). Certifique-se de que as dependências em `server/api/` estejam instaladas.
+
+---
+
+## 10. Build e Deploy de Produção
+
+A aplicação é publicada em duas plataformas distintas:
+
+| Módulo            | Plataforma | URL de produção                         |
+| ----------------- | ---------- | --------------------------------------- |
+| **Frontend** (client) | Vercel  | `https://memora-lac-five.vercel.app`    |
+| **Backend** (server)  | Render  | `https://memora-2pw2.onrender.com`      |
+| **Banco de dados**    | Render PostgreSQL | (instância gerenciada no Render) |
+
+> O fluxo é: a Vercel serve o SPA estático (build do Vite) e o navegador consome a API hospedada no Render, que por sua vez fala com o PostgreSQL do Render.
+
+### 10.1. Build local (validação antes do deploy)
+
+Antes de subir, garanta que ambos os módulos compilam sem erros:
+
+```bash
+# Backend — compila TypeScript para dist/
+cd server
+pnpm build
+
+# Frontend — checagem de tipos + bundle de produção em dist/
+cd ../client
+pnpm build
+```
+
+### 10.2. Backend — Render (Web Service)
+
+O backend é um **Web Service** apontando para a pasta `server` do repositório.
+
+| Configuração       | Valor                                                                       |
+| ------------------ | --------------------------------------------------------------------------- |
+| **Root Directory** | `server`                                                                    |
+| **Build Command**  | `pnpm install && pnpm prisma generate && pnpm prisma migrate deploy && pnpm build` |
+| **Start Command**  | `pnpm start`                                                                |
+
+Pontos importantes do build command:
+
+- `pnpm prisma generate` — gera o Prisma Client antes da compilação.
+- `pnpm prisma migrate deploy` — **aplica as migrations pendentes no banco a cada deploy** (não cria novas migrations; apenas executa as já versionadas em `server/prisma/migrations/`).
+- `pnpm build` — compila o TypeScript para `dist/`, que o `pnpm start` (`node dist/index.js`) executa.
+
+> A **porta** é injetada automaticamente pela Render via variável `PORT` — o servidor já a lê em [server/src/lib/env.ts](server/src/lib/env.ts), então não defina `PORT` manualmente.
+
+#### Variáveis de ambiente (Render)
+
+Configure no painel **Environment** do serviço (nunca no código):
+
+```env
+DATABASE_URL=postgresql://<usuario>:<senha>@<host-interno-render>/<database>
+GEMINI_API_KEY=<sua-chave-do-google-ai-studio>
+JWT_SECRET=<string-longa-e-aleatoria>
+JWT_EXPIRES_IN=30d
+NODE_ENV=production
+CORS_ORIGIN=https://memora-lac-five.vercel.app
+# GOOGLE_CLIENT_ID=  (opcional — login com Google fica desabilitado se vazio)
+```
+
+> **`DATABASE_URL`:** ao usar o PostgreSQL do próprio Render, prefira a **Internal Database URL** (host terminando em `-a`), pois é mais rápida e não conta no limite de conexões externas.
+>
+> **`CORS_ORIGIN`:** precisa ser exatamente a URL do frontend na Vercel. A API só aceita requisições das origens listadas aqui (múltiplas separadas por vírgula) — veja [server/src/index.ts](server/src/index.ts).
+
+### 10.3. Frontend — Vercel
+
+| Configuração         | Valor                                  |
+| -------------------- | -------------------------------------- |
+| **Root Directory**   | `client`                               |
+| **Framework Preset** | Vite (detectado automaticamente)       |
+| **Build Command**    | `pnpm build`                           |
+| **Output Directory** | `dist`                                 |
+
+#### Variáveis de ambiente (Vercel)
+
+```env
+VITE_API_URL=https://memora-2pw2.onrender.com/api
+```
+
+> ⚠️ **O `/api` no final é obrigatório.** Todas as rotas do backend são montadas sob `/api` (`/api/auth`, `/api/decks`, …). Os serviços do frontend chamam `${VITE_API_URL}/auth/login`, `${VITE_API_URL}/decks`, etc. — sem o sufixo `/api`, as requisições retornam **404**.
+>
+> Variáveis `VITE_*` são embutidas no bundle **em tempo de build**. Após alterar o valor, é necessário **refazer o deploy** na Vercel para que ele tenha efeito.
+
+### 10.4. Autenticação em produção
+
+O login retorna um **JWT** que o frontend guarda em `localStorage` (`memora_token`) e envia no header `Authorization: Bearer <token>` ([client/src/services/deckService.ts](client/src/services/deckService.ts)). Por não depender de cookies cross-site, não há configuração extra de domínio/`sameSite` para o deploy funcionar — basta `CORS_ORIGIN` e `VITE_API_URL` corretos.
+
+### 10.5. Checklist de deploy
+
+- [ ] `pnpm build` passa localmente no `client` e no `server`
+- [ ] Migrations versionadas e commitadas em `server/prisma/migrations/`
+- [ ] Variáveis de ambiente configuradas no Render (backend) e na Vercel (frontend)
+- [ ] `CORS_ORIGIN` (Render) aponta para a URL da Vercel
+- [ ] `VITE_API_URL` (Vercel) aponta para a URL do Render **com `/api`**
+- [ ] Segredos (`JWT_SECRET`, `GEMINI_API_KEY`, senha do banco) **nunca** versionados — apenas nos painéis das plataformas
+
+> **Troubleshooting — 404 ao recarregar uma rota (ex.: F5 em `/decks`):** por ser um SPA com `react-router-dom`, todas as rotas precisam servir o `index.html`. A Vercel com preset Vite já trata isso por padrão; caso apareça 404 em refresh, adicione um `client/vercel.json` com um rewrite de `/(.*)` para `/index.html`.
 
 ---
 
